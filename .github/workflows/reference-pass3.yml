@@ -1,0 +1,125 @@
+name: Pilot 01 - reference-directed Pass 3
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/reference-pass3.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  generate:
+    name: Generate from curated references (no source execution)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: candidate-v2
+          run-id: 42884884229
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: prior
+      - name: Run curated-reference experiment on Vultr
+        env:
+          VULTR_INFERENCE_API_KEY: ${{ secrets.VULTR_INFERENCE_API_KEY }}
+        run: |
+          test -n "$VULTR_INFERENCE_API_KEY" || (echo "::error::Vultr secret unavailable" && exit 1)
+          node src/pilot.mjs --project ./prior --output ./candidate-v3 --reference ./docs/reference-conditioned-pass3.md --model glm-5.2
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reference-pass3-source
+          path: candidate-v3/
+          retention-days: 14
+
+  verify:
+    name: Compile and test desktop/mobile without secrets
+    needs: generate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: reference-pass3-source
+          path: candidate-v3
+      - name: Install isolated browser harness
+        run: |
+          npm install --ignore-scripts --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: Compile generated application
+        env:
+          VITE_SUPABASE_URL: https://example.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sloppertizer-test-only
+          VITE_SUPABASE_ANON_KEY: sloppertizer-test-only
+        run: |
+          cd candidate-v3
+          npm install --legacy-peer-deps --ignore-scripts --no-audit --no-fund
+          npm run build
+      - name: Capture screenshots and DOM errors at desktop/mobile
+        env:
+          VITE_SUPABASE_URL: https://example.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sloppertizer-test-only
+          VITE_SUPABASE_ANON_KEY: sloppertizer-test-only
+        run: |
+          npm --prefix candidate-v3 run dev -- --host 127.0.0.1 --port 3000 --strictPort >/tmp/sloppertizer-pass3.log 2>&1 &
+          for i in $(seq 1 35); do curl -sf http://127.0.0.1:3000/ >/dev/null && break; sleep 1; done
+          node src/capture.mjs --url http://127.0.0.1:3000/ --output pass3-screens
+      - name: Test tabs, FAQ and navigation interactions
+        env:
+          VITE_SUPABASE_URL: https://example.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sloppertizer-test-only
+          VITE_SUPABASE_ANON_KEY: sloppertizer-test-only
+        run: node src/interactions.mjs http://127.0.0.1:3000/
+      - name: Preserve screenshots and browser diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reference-pass3-screens
+          path: pass3-screens/
+          retention-days: 14
+          if-no-files-found: warn
+
+  compare:
+    name: Blind before/after critique against Pass 2
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: candidate-v2-screens
+          run-id: 42884884229
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: comparison/pass2
+      - uses: actions/download-artifact@v4
+        with:
+          name: reference-pass3-screens
+          path: comparison/pass3
+      - name: Critique same product before and after with model vision
+        env:
+          VULTR_INFERENCE_API_KEY: ${{ secrets.VULTR_INFERENCE_API_KEY }}
+        run: |
+          node src/critique.mjs --before comparison/pass2/candidate-shots/desktop.png --after comparison/pass3/desktop.png --mobile comparison/pass3/mobile.png --output critique-pass3.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reference-pass3-critique
+          path: critique-pass3.json
+          retention-days: 14
