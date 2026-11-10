@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { cpSync, existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
-import { audit, landingPath, scopedCssPath, sourceCssPath, parseJsonReply, validate, sha256, vultr } from "./lib.mjs";
+import { audit, landingPath, scopedCssPath, sourceCssPath, parseJsonReply, parseTaggedReply, validate, sha256, vultr } from "./lib.mjs";
 import { normalizeKnownImports } from "./normalize.mjs";
 
 const system = [
@@ -11,7 +11,8 @@ const system = [
   "Never invent customers, endorsements, usage figures, integrations, or functionality. Remove unverified hardcoded marketing claims.",
   "Do not use generic gradients, glassmorphism, feature-card grids, emoji decorations, or vague copy.",
   "Preserve legitimate product capabilities and working TanStack Router links.",
-  "Return JSON only: {direction: string, files: {'src/routes/index.tsx': full replacement TSX, 'src/sloppertizer-landing.css': full scoped CSS}}.",
+  "Do NOT return JSON. Output exactly FOUR delimiters on their own lines in this order: ===SLOP_DIRECTION=== then ===SLOP_FILE:src/routes/index.tsx=== then ===SLOP_FILE:src/sloppertizer-landing.css=== then ===SLOP_END===.",
+  "After the direction marker, write a concise art direction. After each FILE marker, output full raw TSX or CSS source until the next marker. Do not escape source code as JSON; do not use markdown fences. Complete all four markers.",
   "Import ../sloppertizer-landing.css in the TSX. The CSS must use .slp- prefixed classes, no global selectors or remote CSS imports.",
   "Keep export const Route = createFileRoute('/') with DOUBLE QUOTES and retain to=\"/auth\", to=\"/responsible-ai\", and id=\"features\".",
   "Do not edit shared src/styles.css or any backend, auth, environment, or configuration files.",
@@ -66,7 +67,7 @@ async function main() {
   const input=JSON.stringify({product:"WorkFlow AI Pro; AI-powered workplace productivity assistant",
     sources:{[landingPath]:original,[sourceCssPath]:baseCss},diagnosis,renderedFeedback:feedback,designReference:reference});
   const result=await vultr([{role:"system",content:system},{role:"user",content:input}],opts.model||"glm-5.2");
-  const proposal=parseJsonReply(result.content);
+  const proposal=result.content.includes("===SLOP_FILE:") ? parseTaggedReply(result.content) : parseJsonReply(result.content);
   if (typeof proposal.files?.[landingPath] === "string") {
     proposal.files[landingPath] = normalizeKnownImports(proposal.files[landingPath]);
   }

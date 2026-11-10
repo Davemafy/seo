@@ -1,6 +1,6 @@
 import test from "node:test";
 import { strict as assert } from "node:assert";
-import { audit, parseJsonReply, validate, landingPath, scopedCssPath } from "../src/lib.mjs";
+import { audit, parseJsonReply, parseTaggedReply, validate, landingPath, scopedCssPath } from "../src/lib.mjs";
 const jsx=[
   'import "../sloppertizer-landing.css";',
   'import {createFileRoute} from "@tanstack/react-router";',
@@ -42,4 +42,14 @@ import { normalizeKnownImports } from "../src/normalize.mjs";
 test("normalizes source-supported component aliases",()=>{
   assert.equal(normalizeKnownImports('import { Button } from "@components/ui/button";'),'import { Button } from "@/components/ui/button";');
   assert.equal(normalizeKnownImports('import { Button } from "@/components/ui/button";'),'import { Button } from "@/components/ui/button";');
+});
+
+test("parses raw source files without broken JSON escapes",()=>{
+  const r = parseTaggedReply("===SLOP_DIRECTION===\nAn editorial landing\n===SLOP_FILE:src/routes/index.tsx===\n"+jsx+"\n===SLOP_FILE:src/sloppertizer-landing.css===\n"+css+"\n===SLOP_END===");
+  assert.equal(r.files[landingPath],jsx);
+  assert.equal(r.files[scopedCssPath],css.trim());
+  assert.equal(r.direction,"An editorial landing");
+});
+test("rejects truncated tagged output",()=>{
+  assert.throws(()=>parseTaggedReply("===SLOP_FILE:src/routes/index.tsx===\nfile"),/Incomplete/);
 });

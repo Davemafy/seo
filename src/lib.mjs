@@ -26,6 +26,29 @@ export function parseJsonReply(raw) {
   return JSON.parse(text.slice(start,end+1));
 }
 
+
+export function parseTaggedReply(raw) {
+  if (typeof raw !== "string") throw new Error("Model returned no text");
+  const D = "===SLOP_DIRECTION===";
+  const A = "===SLOP_FILE:src/routes/index.tsx===";
+  const B = "===SLOP_FILE:src/sloppertizer-landing.css===";
+  const E = "===SLOP_END===";
+  const d = raw.indexOf(D), a = raw.indexOf(A), b = raw.indexOf(B), e = raw.indexOf(E);
+  if (d < 0 || a < 0 || b < 0 || e < 0 || !(d < a && a < b && b < e)) {
+    throw new Error("Incomplete tagged model response; no files applied");
+  }
+  const stripFence = input => input.trim()
+    .replace(/^\x60{3}(?:tsx|typescript|ts|css)?\s*/i, "")
+    .replace(/\s*\x60{3}$/, "").trim();
+  return {
+    direction: raw.slice(d + D.length, a).trim(),
+    files: {
+      [landingPath]: stripFence(raw.slice(a + A.length, b)),
+      [scopedCssPath]: stripFence(raw.slice(b + B.length, e))
+    }
+  };
+}
+
 export function validate(proposal, original) {
   const edits = proposal?.files;
   if (!edits || typeof edits !== "object" || Array.isArray(edits)) throw new Error("Missing files object");

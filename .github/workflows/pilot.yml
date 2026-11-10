@@ -1,11 +1,5 @@
 name: Pilot 01 - WorkFlow AI Pro
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/pilot.yml
-      - src/lib.mjs
-      - src/pilot.mjs
   workflow_dispatch:
     inputs:
       model:
