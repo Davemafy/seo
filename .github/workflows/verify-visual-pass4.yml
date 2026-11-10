@@ -1,0 +1,110 @@
+name: Pilot 01 - verify image-grounded Pass 4
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/verify-visual-pass4.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  verify:
+    name: Reuse generated candidate; validate without any model call
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: visual-pass4-source
+          run-id: 42907884151
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: candidate-v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: candidate-v2-screens
+          run-id: 42884884229
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: pass2
+      - name: Install browser harness and isolated application dependencies
+        run: |
+          npm install --ignore-scripts --no-audit --no-fund
+          npx playwright install --with-deps chromium
+          cd candidate-v4
+          npm install --legacy-peer-deps --ignore-scripts --no-audit --no-fund
+      - name: Compile candidate with stub backend
+        env: &dummy_backend
+          VITE_SUPABASE_URL: https://example.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sloppertizer-test-only
+          VITE_SUPABASE_ANON_KEY: sloppertizer-test-only
+        run: npm --prefix candidate-v4 run build
+      - name: Start candidate and capture
+        env: *dummy_backend
+        run: |
+          npm --prefix candidate-v4 run dev -- --host 127.0.0.1 --port 3000 --strictPort >/tmp/sloppertizer-pass4.log 2>&1 &
+          for i in $(seq 1 35); do curl -sf http://127.0.0.1:3000/ >/dev/null && break; sleep 1; done
+          node src/capture.mjs --url http://127.0.0.1:3000/ --output pass4-shots
+      - name: Browser interaction test with semantic capability tabs
+        run: node src/interactions.mjs http://127.0.0.1:3000/
+      - name: Compare page geometry and typography against Pass 2
+        id: gate
+        continue-on-error: true
+        run: |
+          node src/visual-quality-gate.mjs --baseline pass2/candidate-shots/report.json --candidate pass4-shots/report.json --url http://127.0.0.1:3000/ --output pass4-regression.json
+      - name: Save screenshots and regression details, including rejected cases
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pass4-verified-evidence
+          path: |
+            pass4-shots/
+            pass4-regression.json
+          retention-days: 14
+          if-no-files-found: warn
+      - name: Fail if regression gate rejected candidate
+        if: steps.gate.outcome == 'failure'
+        run: |
+          echo "::error::Pass 4 has actual geometry/typography regression against Pass 2; keep Pass 2 baseline."
+          exit 1
+
+  critique:
+    name: Produce a visual critique, even when regression gate rejects
+    needs: verify
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: pass4-verified-evidence
+          path: candidate
+      - uses: actions/download-artifact@v4
+        with:
+          name: candidate-v2-screens
+          run-id: 42884884229
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: pass2
+      - name: Compare Pass 2 with Pass 4 using actual screenshots
+        env:
+          VULTR_INFERENCE_API_KEY: ${{ secrets.VULTR_INFERENCE_API_KEY }}
+        run: |
+          test -n "$VULTR_INFERENCE_API_KEY" || (echo "::error::Missing Vultr secret" && exit 1)
+          node src/critique.mjs --before pass2/candidate-shots/desktop.png --after candidate/pass4-shots/desktop.png --mobile candidate/pass4-shots/mobile.png --output pass4-visual-critique.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pass4-visual-critique
+          path: pass4-visual-critique.json
+          retention-days: 14
