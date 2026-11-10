@@ -1,0 +1,50 @@
+name: Pilot 01 - interaction verification
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/interactions-pilot.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  interactions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: candidate-v2
+          run-id: 42884884229
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: candidate
+      - name: Install browser harness and headless Chromium
+        run: |
+          npm install --no-audit --no-fund --ignore-scripts
+          npx playwright install --with-deps chromium
+      - name: Install candidate dependencies, build app
+        env:
+          VITE_SUPABASE_URL: https://example.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sloppertizer-test-only
+          VITE_SUPABASE_ANON_KEY: sloppertizer-test-only
+        run: |
+          cd candidate
+          npm install --legacy-peer-deps --ignore-scripts --no-audit --no-fund
+          npm run build
+      - name: Assert real UI interactions
+        env:
+          VITE_SUPABASE_URL: https://example.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sloppertizer-test-only
+          VITE_SUPABASE_ANON_KEY: sloppertizer-test-only
+        run: |
+          npm --prefix candidate run dev -- --host 127.0.0.1 --port 3000 --strictPort >/tmp/sloppertizer-vite.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:3000/ >/dev/null && break; sleep 1; done
+          node src/interactions.mjs http://127.0.0.1:3000/
