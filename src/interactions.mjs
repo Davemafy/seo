@@ -20,16 +20,16 @@ try {
     assert.equal(await tabs.count(), 6, device+" must have six accessible capability tabs");
     const panel = page.getByRole("tabpanel");
     assert.match(await panel.innerText(),/Smart Email Generator/,device+" initial panel");
-    const taskTab = tabs.filter({hasText:"AI Task Planner"});
+    const taskTab = tabs.nth(2);
     await taskTab.click();
     await page.waitForFunction(() => {
-      const el = [...document.querySelectorAll('[role="tab"]')].find(e => e.textContent.includes("AI Task Planner"));
+      const el = [...document.querySelectorAll('[role="tab"]')][2];
       return el?.getAttribute("aria-selected") === "true";
     }, null, { timeout: 10000 });
     assert.equal(await taskTab.getAttribute("aria-selected"),"true",device+" active state");
     assert.match(await panel.innerText(),/AI Task Planner/,device+" active panel changes");
     assert.doesNotMatch(await panel.innerText(),/Draft executive-quality emails/,device+" old panel removed");
-    await tabs.filter({hasText:"Research Assistant"}).click();
+    await tabs.nth(3).click();
     assert.match(await panel.innerText(),/Research Assistant/,device+" research panel");
     const faq = page.getByRole("button",{name:"Is my data private?"});
     await faq.click();
