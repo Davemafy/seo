@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - .github/workflows/interactions-pilot.yml
+      - src/interactions.mjs
   workflow_dispatch:
 permissions:
   contents: read

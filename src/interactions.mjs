@@ -12,7 +12,9 @@ try {
     const page = await browser.newPage({ viewport });
     const errors = [];
     page.on("pageerror", error => errors.push(error.message));
-    const response = await page.goto(address, { waitUntil: "domcontentloaded" });
+    const response = await page.goto(address, { waitUntil: "networkidle" });
+    // TanStack Start streams SSR HTML. Wait until client hydration attaches tab listeners.
+    await page.waitForTimeout(850);
     assert.equal(response?.status(), 200, device+" page response");
     const tabs = page.getByRole("tab");
     assert.equal(await tabs.count(), 6, device+" must have six accessible capability tabs");
@@ -20,6 +22,10 @@ try {
     assert.match(await panel.innerText(),/Smart Email Generator/,device+" initial panel");
     const taskTab = tabs.filter({hasText:"AI Task Planner"});
     await taskTab.click();
+    await page.waitForFunction(() => {
+      const el = [...document.querySelectorAll('[role="tab"]')].find(e => e.textContent.includes("AI Task Planner"));
+      return el?.getAttribute("aria-selected") === "true";
+    }, null, { timeout: 10000 });
     assert.equal(await taskTab.getAttribute("aria-selected"),"true",device+" active state");
     assert.match(await panel.innerText(),/AI Task Planner/,device+" active panel changes");
     assert.doesNotMatch(await panel.innerText(),/Draft executive-quality emails/,device+" old panel removed");
