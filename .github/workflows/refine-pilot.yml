@@ -4,6 +4,8 @@ on:
     branches: [main]
     paths:
       - .github/workflows/refine-pilot.yml
+      - src/lib.mjs
+      - src/pilot.mjs
   workflow_dispatch:
 permissions:
   contents: read
