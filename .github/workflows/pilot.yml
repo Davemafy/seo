@@ -1,0 +1,122 @@
+name: Pilot 01 - WorkFlow AI Pro
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/pilot.yml
+  workflow_dispatch:
+    inputs:
+      model:
+        description: Vultr inference model
+        required: false
+        default: glm-5.2
+permissions:
+  contents: read
+concurrency:
+  group: sloppertizer-pilot-01
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    name: Generate candidate (model only; no untrusted execution)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fetch pinned public test source
+        run: |
+          git clone --depth 1 https://github.com/TinyikoMamban/workflowai-pro.git workflowai-pro
+          git -C workflowai-pro fetch --depth 1 origin 1ab6e6fba96ad6cadec64bfa9132398313b40986
+          git -C workflowai-pro checkout --detach 1ab6e6fba96ad6cadec64bfa9132398313b40986
+          node src/pilot.mjs --project ./workflowai-pro --audit
+      - name: Generate scoped redesign via Vultr
+        env:
+          VULTR_INFERENCE_API_KEY: ${{ secrets.VULTR_INFERENCE_API_KEY }}
+        run: |
+          if [ -z "$VULTR_INFERENCE_API_KEY" ]; then echo "::error::Configure VULTR_INFERENCE_API_KEY in this repository's Actions secrets"; exit 1; fi
+          node src/pilot.mjs --project ./workflowai-pro --output ./candidate --model "${{ inputs.model || 'glm-5.2' }}"
+      - name: Export candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: candidate-v1
+          path: candidate/
+          retention-days: 7
+
+  verify:
+    name: Build and inspect without secrets
+    needs: generate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: candidate-v1
+          path: candidate
+      - name: Install browser harness
+        run: |
+          npm install --no-audit --no-fund --ignore-scripts
+          npx playwright install --with-deps chromium
+      - name: Install and build candidate
+        env:
+          VITE_SUPABASE_URL: https://example.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sloppertizer-demo-no-backend
+          VITE_SUPABASE_ANON_KEY: sloppertizer-demo-no-backend
+        run: |
+          cd candidate
+          npm install --legacy-peer-deps --ignore-scripts --no-audit --no-fund
+          npm run build
+      - name: Capture before and after
+        env:
+          VITE_SUPABASE_URL: https://example.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sloppertizer-demo-no-backend
+          VITE_SUPABASE_ANON_KEY: sloppertizer-demo-no-backend
+        run: |
+          npm --prefix candidate run dev -- --host 127.0.0.1 --port 3000 --strictPort >/tmp/sloppertizer-vite.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:3000/ >/dev/null && break; sleep 1; done
+          node src/capture.mjs --url https://workflowai-pro.lovable.app --output baseline
+          node src/capture.mjs --url http://127.0.0.1:3000/ --output redesigned
+      - name: Export screenshots and browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-v1
+          path: |
+            baseline/
+            redesigned/
+          retention-days: 7
+          if-no-files-found: warn
+
+  critique:
+    name: Screenshot critique using Vultr vision model
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: screenshots-v1
+          path: evidence
+      - name: Compare original and redesign
+        env:
+          VULTR_INFERENCE_API_KEY: ${{ secrets.VULTR_INFERENCE_API_KEY }}
+        run: |
+          node src/critique.mjs --before evidence/baseline/desktop.png --after evidence/redesigned/desktop.png --mobile evidence/redesigned/mobile.png --output critique.json --model "${{ inputs.model || 'glm-5.2' }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: critique-v1
+          path: critique.json
+          retention-days: 7
