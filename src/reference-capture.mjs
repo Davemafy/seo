@@ -26,8 +26,9 @@ async function main() {
         const response = await page.goto(site.url, { waitUntil: "domcontentloaded", timeout: 45000 });
         if (!response?.ok()) throw new Error(site.id + ": HTTP " + response?.status());
         await page.waitForTimeout(2200);
-        if (site.id === "sunsama") {
-          const reject = page.getByRole("button", { name: /^decline$/i });
+        if (site.id === "sunsama" || site.id === "granola") {
+          const name = site.id === "sunsama" ? /^decline$/i : /^reject all$/i;
+          const reject = page.getByRole("button", { name });
           if (await reject.count()) await reject.first().click({ timeout: 1500 }).catch(() => {});
         }
         // Capture the real rendered opening viewport; do not fetch or copy branding assets.
