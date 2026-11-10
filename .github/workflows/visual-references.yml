@@ -1,0 +1,197 @@
+name: Pilot 01 - visual references (Pass 4)
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/visual-references.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: sloppertizer-visual-references-pass4
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    name: Capture real design reference screenshots (no secrets)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install browser
+        run: |
+          npm install --ignore-scripts --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: Capture three real 1440x900 reference homepages
+        run: node src/reference-capture.mjs --output ref-shots
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ref-shots
+          path: ref-shots/
+          retention-days: 5
+
+  direction:
+    name: Inspect real screenshots with Vultr multimodal AI
+    needs: capture
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: ref-shots
+          path: ref-shots
+      - uses: actions/download-artifact@v4
+        with:
+          name: candidate-v2-screens
+          run-id: 42884884229
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: pass2-evidence
+      - name: Analyze reference pixels and Pass 2 screenshot
+        env:
+          VULTR_INFERENCE_API_KEY: ${{ secrets.VULTR_INFERENCE_API_KEY }}
+        run: |
+          test -n "$VULTR_INFERENCE_API_KEY" || (echo "::error::Missing Vultr key" && exit 1)
+          node src/visual-director.mjs --refs ref-shots --before pass2-evidence/candidate-shots/desktop.png --output visual-guidance.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: screenshot-grounded-direction
+          path: visual-guidance.md
+          retention-days: 7
+
+  generate:
+    name: Redesign from screenshot-grounded direction (model only)
+    needs: direction
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: candidate-v2
+          run-id: 42884884229
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: prior
+      - uses: actions/download-artifact@v4
+        with:
+          name: screenshot-grounded-direction
+          path: .
+      - name: Generate visual-conditioned candidate with Vultr
+        env:
+          VULTR_INFERENCE_API_KEY: ${{ secrets.VULTR_INFERENCE_API_KEY }}
+        run: |
+          test -n "$VULTR_INFERENCE_API_KEY" || (echo "::error::Missing Vultr key" && exit 1)
+          node src/pilot.mjs --project ./prior --output ./candidate-v4 --reference ./visual-guidance.md --model glm-5.2
+      - uses: actions/upload-artifact@v4
+        with:
+          name: visual-pass4-source
+          path: candidate-v4/
+          retention-days: 14
+
+  verify:
+    name: Build, screenshot, interaction tests and regression gate
+    needs: generate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: visual-pass4-source
+          path: candidate-v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: candidate-v2-screens
+          run-id: 42884884229
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: pass2-evidence
+      - name: Install uncredentialed browser harness
+        run: |
+          npm install --ignore-scripts --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: Build candidate in no-secret worker with demo backend values
+        env:
+          VITE_SUPABASE_URL: https://example.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sloppertizer-test-only
+          VITE_SUPABASE_ANON_KEY: sloppertizer-test-only
+        run: |
+          cd candidate-v4
+          npm install --legacy-peer-deps --ignore-scripts --no-audit --no-fund
+          npm run build
+      - name: Start app and capture browser evidence
+        env:
+          VITE_SUPABASE_URL: https://example.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sloppertizer-test-only
+          VITE_SUPABASE_ANON_KEY: sloppertizer-test-only
+        run: |
+          npm --prefix candidate-v4 run dev -- --host 127.0.0.1 --port 3000 --strictPort >/tmp/sloppertizer-v4.log 2>&1 &
+          for i in $(seq 1 35); do curl -sf http://127.0.0.1:3000/ >/dev/null && break; sleep 1; done
+          node src/capture.mjs --url http://127.0.0.1:3000/ --output pass4-screens
+      - name: Test actual UI interactions at desktop and mobile
+        run: node src/interactions.mjs http://127.0.0.1:3000/
+      - name: Compare dimensions, headline and integrity against verified Pass 2
+        run: |
+          node src/visual-quality-gate.mjs --baseline pass2-evidence/candidate-shots/report.json --candidate pass4-screens/report.json --url http://127.0.0.1:3000/ --output pass4-regression.json
+      - name: Preserve screenshots and gate reports even if rejected
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-pass4-screens
+          path: |
+            pass4-screens/
+            pass4-regression.json
+          retention-days: 14
+          if-no-files-found: warn
+
+  compare:
+    name: Check visual direction against Pass 2 by actual screenshots
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: visual-pass4-screens
+          path: pass4
+      - uses: actions/download-artifact@v4
+        with:
+          name: candidate-v2-screens
+          run-id: 42884884229
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: pass2
+      - name: Screenshot visual critique by multimodal model
+        env:
+          VULTR_INFERENCE_API_KEY: ${{ secrets.VULTR_INFERENCE_API_KEY }}
+        run: |
+          node src/critique.mjs --before pass2/candidate-shots/desktop.png --after pass4/pass4-screens/desktop.png --mobile pass4/pass4-screens/mobile.png --output critique-pass4.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: visual-pass4-critique
+          path: critique-pass4.json
+          retention-days: 14
