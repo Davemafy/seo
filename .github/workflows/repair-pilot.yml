@@ -1,0 +1,96 @@
+name: Repair and verify pilot 01
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/repair-pilot.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  verify:
+    name: Repair imports, compile, render and inspect (no inference)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: candidate-v1
+          run-id: 42882034605
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: candidate
+      - name: Normalize known import alias
+        run: node src/normalize.mjs --project ./candidate
+      - name: Export repaired code
+        uses: actions/upload-artifact@v4
+        with:
+          name: candidate-v1-repaired
+          path: candidate/
+          retention-days: 7
+      - name: Install screenshot harness
+        run: |
+          npm install --no-audit --no-fund --ignore-scripts
+          npx playwright install --with-deps chromium
+      - name: Build safely with stub backend values
+        env:
+          VITE_SUPABASE_URL: https://example.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sloppertizer-demo-no-backend
+          VITE_SUPABASE_ANON_KEY: sloppertizer-demo-no-backend
+        run: |
+          cd candidate
+          npm install --legacy-peer-deps --ignore-scripts --no-audit --no-fund
+          npm run build
+      - name: Capture original and redesigned pages
+        env:
+          VITE_SUPABASE_URL: https://example.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sloppertizer-demo-no-backend
+          VITE_SUPABASE_ANON_KEY: sloppertizer-demo-no-backend
+        run: |
+          npm --prefix candidate run dev -- --host 127.0.0.1 --port 3000 --strictPort >/tmp/sloppertizer-vite.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:3000/ >/dev/null && break; sleep 1; done
+          node src/capture.mjs --url https://workflowai-pro.lovable.app --output baseline
+          node src/capture.mjs --url http://127.0.0.1:3000/ --output redesigned
+      - name: Upload screenshots and browser report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pilot-01-repaired-screens
+          path: |
+            baseline/
+            redesigned/
+          retention-days: 7
+          if-no-files-found: warn
+
+  critique:
+    name: Judge visual quality by comparing real screenshots
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: pilot-01-repaired-screens
+          path: evidence
+      - name: Review screenshots using Vultr vision
+        env:
+          VULTR_INFERENCE_API_KEY: ${{ secrets.VULTR_INFERENCE_API_KEY }}
+        run: |
+          node src/critique.mjs --before evidence/baseline/desktop.png --after evidence/redesigned/desktop.png --mobile evidence/redesigned/mobile.png --output feedback.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pilot-01-visual-feedback
+          path: feedback.json
+          retention-days: 7
