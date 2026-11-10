@@ -37,3 +37,9 @@ test("rejects global and remote CSS",()=>{
 test("rejects unchanged output",()=>{
   assert.throws(()=>validate(candidate(),jsx),/Not a redesign/);
 });
+
+import { normalizeKnownImports } from "../src/normalize.mjs";
+test("normalizes source-supported component aliases",()=>{
+  assert.equal(normalizeKnownImports('import { Button } from "@components/ui/button";'),'import { Button } from "@/components/ui/button";');
+  assert.equal(normalizeKnownImports('import { Button } from "@/components/ui/button";'),'import { Button } from "@/components/ui/button";');
+});
