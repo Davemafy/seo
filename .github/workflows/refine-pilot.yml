@@ -1,0 +1,123 @@
+name: Pilot 01 - visual refinement
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/refine-pilot.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  generate:
+    name: Refine from browser evidence (trusted model-only runner)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Download prior verified build and critique
+        uses: actions/download-artifact@v4
+        with:
+          name: candidate-v1-repaired
+          run-id: 42883074126
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: prior
+      - uses: actions/download-artifact@v4
+        with:
+          name: pilot-01-visual-feedback
+          run-id: 42883074126
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: prior-feedback
+      - name: Refine using evidenced feedback
+        env:
+          VULTR_INFERENCE_API_KEY: ${{ secrets.VULTR_INFERENCE_API_KEY }}
+        run: |
+          if [ -z "$VULTR_INFERENCE_API_KEY" ]; then echo "::error::Missing Vultr inference secret"; exit 1; fi
+          node src/pilot.mjs --project ./prior --output ./candidate-v2 --feedback ./prior-feedback/feedback.json --reference ./docs/refinement-v1.md
+      - name: Archive generated code
+        uses: actions/upload-artifact@v4
+        with:
+          name: candidate-v2
+          path: candidate-v2/
+          retention-days: 7
+
+  verify:
+    name: Build and render with no credentials
+    runs-on: ubuntu-latest
+    needs: generate
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: candidate-v2
+          path: candidate-v2
+      - name: Install browser harness
+        run: |
+          npm install --no-audit --no-fund --ignore-scripts
+          npx playwright install --with-deps chromium
+      - name: Build candidate with dummy backend settings
+        env:
+          VITE_SUPABASE_URL: https://example.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sloppertizer-test-only
+          VITE_SUPABASE_ANON_KEY: sloppertizer-test-only
+        run: |
+          cd candidate-v2
+          npm install --legacy-peer-deps --ignore-scripts --no-audit --no-fund
+          npm run build
+      - name: Capture desktop and mobile
+        env:
+          VITE_SUPABASE_URL: https://example.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sloppertizer-test-only
+          VITE_SUPABASE_ANON_KEY: sloppertizer-test-only
+        run: |
+          npm --prefix candidate-v2 run dev -- --host 127.0.0.1 --port 3000 --strictPort >/tmp/sloppertizer-vite.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:3000/ >/dev/null && break; sleep 1; done
+          node src/capture.mjs --url https://workflowai-pro.lovable.app --output baseline
+          node src/capture.mjs --url http://127.0.0.1:3000/ --output candidate-shots
+      - name: Export browser screenshots and reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: candidate-v2-screens
+          path: |
+            baseline/
+            candidate-shots/
+          retention-days: 7
+          if-no-files-found: warn
+
+  judge:
+    name: Visual critique after functional checks
+    runs-on: ubuntu-latest
+    needs: verify
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: candidate-v2-screens
+          path: evidence
+      - name: Judge actual before and after screenshots
+        env:
+          VULTR_INFERENCE_API_KEY: ${{ secrets.VULTR_INFERENCE_API_KEY }}
+        run: |
+          node src/critique.mjs --before evidence/baseline/desktop.png --after evidence/candidate-shots/desktop.png --mobile evidence/candidate-shots/mobile.png --output critique-v2.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: candidate-v2-critique
+          path: critique-v2.json
+          retention-days: 7
