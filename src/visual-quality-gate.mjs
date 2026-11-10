@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 import { readFileSync, writeFileSync } from "node:fs";
-import { chromium } from "playwright";
 
 export function evaluateQuality(baseline, candidate, typography, ratios={desktop:1.18,mobile:1.18}) {
   const defects=[];
@@ -20,6 +19,7 @@ export function evaluateQuality(baseline, candidate, typography, ratios={desktop
 }
 
 async function measure(url) {
+  const { chromium } = await import("playwright");
   const browser = await chromium.launch();
   const data={};
   try {

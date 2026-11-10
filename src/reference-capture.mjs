@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import { chromium } from "playwright";
 import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { resolve, join } from "node:path";
@@ -16,6 +15,7 @@ async function main() {
   if (args[0] !== "--output" || !args[1]) throw new Error("Usage: node src/reference-capture.mjs --output refs");
   const dir = resolve(args[1]);
   mkdirSync(dir, { recursive: true });
+  const { chromium } = await import("playwright");
   const browser = await chromium.launch({ headless: true });
   const manifest = [];
   try {
