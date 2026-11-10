@@ -17,8 +17,10 @@ export function checkGuidance(text) {
 export function imagePart(path) {
   const buf = readFileSync(resolve(path));
   if (buf.length < 1000 || buf.length > 2_500_000) throw new Error("Bad reference image size");
-  if (buf[0] !== 0xff || buf[1] !== 0xd8) throw new Error("Expected real JPEG screenshot");
-  return { type: "image_url", image_url: { url: "data:image/jpeg;base64," + buf.toString("base64") } };
+  const mime = (buf[0] === 0xff && buf[1] === 0xd8) ? "image/jpeg" :
+    (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) ? "image/png" : "";
+  if (!mime) throw new Error("Expected real PNG or JPEG screenshot");
+  return { type: "image_url", image_url: { url: "data:" + mime + ";base64," + buf.toString("base64") } };
 }
 
 async function main() {
