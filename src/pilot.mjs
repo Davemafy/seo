@@ -2,6 +2,7 @@
 import { cpSync, existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { audit, landingPath, scopedCssPath, sourceCssPath, parseJsonReply, validate, sha256, vultr } from "./lib.mjs";
+import { normalizeKnownImports } from "./normalize.mjs";
 
 const system = [
   "You are Sloppertizer: an expert art director and frontend engineer.",
@@ -66,6 +67,9 @@ async function main() {
     sources:{[landingPath]:original,[sourceCssPath]:baseCss},diagnosis,renderedFeedback:feedback,designReference:reference});
   const result=await vultr([{role:"system",content:system},{role:"user",content:input}],opts.model||"glm-5.2");
   const proposal=parseJsonReply(result.content);
+  if (typeof proposal.files?.[landingPath] === "string") {
+    proposal.files[landingPath] = normalizeKnownImports(proposal.files[landingPath]);
+  }
   const verdict=validate(proposal,original);
   copyWithoutSecrets(source,target);
   for(const path of verdict.paths) {
