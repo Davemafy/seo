@@ -22,6 +22,9 @@ try {
       title:document.title,
       h1:[...document.querySelectorAll("h1")].map(n=>n.textContent.trim()),
       overflow:document.documentElement.scrollWidth>innerWidth+2,
+      pageHeight:document.documentElement.scrollHeight,
+      authLinks:document.querySelectorAll('a[href="/auth"]').length,
+      responsibleAiLinks:document.querySelectorAll('a[href="/responsible-ai"]').length,
       brokenImages:[...document.images].filter(i=>!i.complete||!i.naturalWidth).map(i=>i.src),
       links:[...document.querySelectorAll("a[href]")].map(n=>n.getAttribute("href")),
       buttons:document.querySelectorAll("button").length
@@ -32,4 +35,4 @@ try {
 } finally { await browser.close(); }
 writeFileSync(join(out,"report.json"),JSON.stringify(report,null,2)+"\n");
 console.log(JSON.stringify(report,null,2));
-if(Object.values(report).some(x=>x.status>=400||x.overflow||x.errors.length)) process.exitCode=1;
+if(Object.values(report).some(x=>x.status>=400||x.overflow||x.errors.length||x.brokenImages.length||!x.authLinks||!x.responsibleAiLinks)) process.exitCode=1;
