@@ -47,23 +47,38 @@ export function validate(proposal, original) {
   return { paths, direction: String(proposal.direction || "").slice(0, 1200) };
 }
 
-export async function vultr(messages, model = "glm-5.2", maxTokens = 15000) {
+export async function vultr(messages, model = "glm-5.2", maxTokens = 22000) {
   const key = process.env.VULTR_INFERENCE_API_KEY;
   if (!key) throw new Error("VULTR_INFERENCE_API_KEY missing");
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 180000);
-  try {
-    const response = await fetch("https://api.vultrinference.com/v1/chat/completions", {
-      method: "POST",
-      headers: { authorization: "Bearer " + key, "content-type": "application/json" },
-      body: JSON.stringify({ model, messages, temperature: 0.3, max_completion_tokens: maxTokens }),
-      signal: controller.signal
-    });
-    if (!response.ok) throw new Error("Vultr inference HTTP " + response.status);
-    const result = await response.json();
-    if (result.choices?.[0]?.finish_reason === "length") throw new Error("Truncated model output; rejected");
-    const content = result.choices?.[0]?.message?.content;
-    if (typeof content !== "string" || !content) throw new Error("Empty model output");
-    return { content, model: result.model, usage: result.usage };
-  } finally { clearTimeout(timer); }
+  const parts = [];
+  let actualModel = model;
+  let usage = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 240000);
+    try {
+      const continuation = parts.length ? [...messages, { role: "assistant", content: parts.join("") }] : messages;
+      const response = await fetch("https://api.vultrinference.com/v1/chat/completions", {
+        method: "POST",
+        headers: { authorization: "Bearer " + key, "content-type": "application/json" },
+        body: JSON.stringify({
+          model, messages: continuation, temperature: 0.3,
+          max_completion_tokens: maxTokens,
+          reasoning: { max_tokens: 1800 }
+        }),
+        signal: controller.signal
+      });
+      if (!response.ok) throw new Error("Vultr inference HTTP " + response.status);
+      const result = await response.json();
+      actualModel = result.model || actualModel;
+      const content = result.choices?.[0]?.message?.content;
+      if (typeof content !== "string" || !content) throw new Error("Empty model output");
+      parts.push(content);
+      usage = result.usage || usage;
+      if (result.choices?.[0]?.finish_reason !== "length") {
+        return { content: parts.join(""), model: actualModel, usage };
+      }
+    } finally { clearTimeout(timer); }
+  }
+  throw new Error("Model output exceeded three continuations; rejected without modifying code");
 }
