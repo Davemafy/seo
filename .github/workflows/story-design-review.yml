@@ -19,7 +19,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        site: [cactus, workflow]
+        include:
+          - site: cactus
+            layout: editorial-rail
+          - site: workflow
+            layout: product-casebook
     steps:
       - uses: actions/checkout@v4
         with:
@@ -30,8 +34,8 @@ jobs:
           cache: npm
       - uses: actions/download-artifact@v4
         with:
-          name: story-${{ matrix.site }}-editorial-rail
-          run-id: 43061000847
+          name: story-${{ matrix.site }}-${{ matrix.layout }}
+          run-id: 43073006408
           repository: ${{ github.repository }}
           github-token: ${{ github.token }}
           path: source-evidence
@@ -53,7 +57,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: story-visual-review-${{ matrix.site }}
+          name: story-visual-review-${{ matrix.site }}-${{ matrix.layout }}
           path: review/
           retention-days: 14
           if-no-files-found: warn
