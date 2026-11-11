@@ -7,7 +7,7 @@ export async function auditAccessibility(page) {
   const violations=await page.evaluate(async()=>{
     const result=await window.axe.run(document,{runOnly:{type:"rule",values:["color-contrast","link-name","button-name"]}});
     return result.violations.map(v=>({id:v.id,impact:v.impact,count:v.nodes.length,
-      nodes:v.nodes.slice(0,24).map(n=>({
+      nodes:v.nodes.slice(0,100).map(n=>({
         selector:n.target.join(" "),html:n.html.slice(0,300),
         failure:n.failureSummary?.slice(0,450)||""
       }))}));

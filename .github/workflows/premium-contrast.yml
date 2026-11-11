@@ -52,7 +52,7 @@ jobs:
           retention-days: 14
 
   repair:
-    name: Generate isolated COLOR ONLY patch from measured contrast defects
+    name: Generate measured COLOR ONLY patch without inference
     needs: audit
     runs-on: ubuntu-latest
     steps:
@@ -74,14 +74,11 @@ jobs:
         with:
           name: premium-contrast-before
           path: before
-      - name: Install inference client without executing site dependencies
+      - name: Install audit tooling without executing site dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund
-      - name: Generate color-only fix; no TSX rewrite or broad restyling
-        env:
-          VULTR_INFERENCE_API_KEY: ${{ secrets.VULTR_INFERENCE_API_KEY }}
+      - name: Generate measured deterministic color repair (zero inference credits)
         run: |
-          test -n "$VULTR_INFERENCE_API_KEY" || (echo "::error::Missing Vultr inference secret" && exit 1)
-          node src/engine/contrast-repair.mjs --project candidate --report before/report.json --desktop before/desktop.png --mobile before/mobile.png --output repaired
+          node src/engine/repair-from-axe.mjs --project candidate --report before/report.json --output repaired
       - uses: actions/upload-artifact@v4
         with:
           name: premium-contrast-repaired-source
