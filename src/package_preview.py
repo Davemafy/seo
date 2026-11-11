@@ -71,7 +71,7 @@ deps = {
 }
 devdeps = {
     "vite": "^8.0.16", "@vitejs/plugin-react": "^5.2.0",
-    "@tailwindcss/vite": "^4.2.1", "tailwindcss": "^4.2.1",
+    "@tailwindcss/vite": "^4.2.1", "tailwindcss": "^4.2.1", "tw-animate-css":"^1.3.4",
     "typescript": "^5.8.3", "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0"
 }

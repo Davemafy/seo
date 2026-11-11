@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - .github/workflows/pages-preview.yml
+      - src/package_preview.py
   workflow_dispatch:
 permissions:
   contents: read
