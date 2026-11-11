@@ -35,7 +35,7 @@ test("adds scoped CSS without removing any original markup/handlers/anchors",()=
   assert(p.source.includes("<button>Try It Out</button>"));
 });
 test("rejects ambiguous/dynamic root for integrity",()=>{
-  assert.throws(()=>addScope(original.replace("<main","<main>\\n<main"),"src/App.tsx"),/exactly one/);
+  assert.throws(()=>addScope(original.replace("<main","<main>\n<main"),"src/App.tsx"),/exactly one/);
   assert.throws(()=>addScope(original.replace('className="mx-auto p-6"','className={styles.root}'),"src/App.tsx"),/Dynamic/);
 });
 test("rejects CSS breaking its scope, remote dependencies, bad provenance",()=>{
@@ -45,18 +45,17 @@ test("rejects CSS breaking its scope, remote dependencies, bad provenance",()=>{
   assert.throws(()=>validateCss(goodCss+'.slp-engine, html {opacity:0}'),/escaped/);
 });
 test("parse visual design contract and reject missing delimiters",()=>{
-  const answer='===DESIGN_DIRECTION===\\nCactus is a patient-growth app with a confident editorial display. Give the content a generous width.\\n===DESIGN_CSS===\\n'+goodCss+'\\n===DESIGN_END===';
+  const answer='===DESIGN_DIRECTION===\nCactus is a patient-growth app with a confident editorial display. Give the content a generous width.\n===DESIGN_CSS===\n'+goodCss+'\n===DESIGN_END===';
   assert.equal(parseDesign(answer).css,goodCss.trim());
   assert.throws(()=>parseDesign(goodCss),/markers/);
 });
 test("automated candidate generation uses mock inference and preserves source",async()=> {
-  await fixture(async()=>{}); // isolated fixture test below uses explicit async cleanup
   const root=mkdtempSync(join(tmpdir(),"slop-cactus-")),target=root+"-candidate";
   try{
     mkdirSync(join(root,"src"));writeFileSync(join(root,"package.json"),JSON.stringify({name:"cactus",devDependencies:{vite:"3.2.3"},scripts:{build:"vite build",dev:"vite"}}));
     writeFileSync(join(root,"index.html"),"<title>Cactus Studio</title>");
     writeFileSync(join(root,"src/App.tsx"),original);writeFileSync(join(root,"src/App.css"),".foo{}");
-    const provider=async messages=>({content:"===DESIGN_DIRECTION===\\nCactus Studio uses careful layout and richer typography. Distinct art direction protects the original functionality.\\n===DESIGN_CSS===\\n"+goodCss+"\\n===DESIGN_END===",model:"mock",usage:{total_tokens:0}});
+    const provider=async messages=>({content:"===DESIGN_DIRECTION===\nCactus Studio uses careful layout and richer typography. Distinct art direction protects the original functionality.\n===DESIGN_CSS===\n"+goodCss+"\n===DESIGN_END===",model:"mock",usage:{total_tokens:0}});
     const result=await generate({project:root,output:target,provider});
     assert.equal(result.product,"Cactus Studio");
     const rendered=readFileSync(join(target,"src/App.tsx"),"utf8");
