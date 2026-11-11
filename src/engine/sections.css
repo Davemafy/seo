@@ -1,14 +1,14 @@
 /* Sloppertizer: source-preserving editorial sections.
    No fabricated reviews, badges, prices or product artwork. */
 .slp-engine{--ex-ink:#193b2e;--ex-fern:#204c38;--ex-clay:#985332;--ex-muted:#435b4c;--ex-paper:#f4f0e7;--ex-cream:#faf8f1;--ex-rule:#d5dcd0}
-.slp-engine #slp-details.slp-exp-features,.slp-engine .slp-exp-features{background:#f9f7f0!important;color:var(--ex-ink)!important;padding:80px clamp(22px,5vw,72px) 83px!important;max-width:none!important;margin:0!important;border-top:1px solid #e2e3d8!important;border-bottom:1px solid #d4dcd0!important}
+.slp-engine #slp-details.slp-exp-features,.slp-engine .slp-exp-features{background:#f9f7f0!important;color:var(--ex-ink)!important;padding:58px clamp(22px,5vw,72px) 59px!important;max-width:none!important;margin:0!important;border-top:1px solid #e2e3d8!important;border-bottom:1px solid #d4dcd0!important}
 .slp-engine .slp-exp-features > div{max-width:1180px!important;margin:0 auto!important;padding:0!important}
 .slp-engine .slp-exp-features-intro{max-width:none!important;display:grid!important;grid-template-columns:1.12fr .88fr!important;gap:0 64px!important;align-items:end!important;text-align:left!important}
 .slp-engine .slp-exp-features-intro > h2{grid-column:1/-1!important;margin:0 0 15px!important;font:750 11px/1.5 ui-monospace,monospace!important;letter-spacing:.16em!important;text-transform:uppercase!important;color:var(--ex-clay)!important}
 .slp-engine .slp-exp-features-intro > p:nth-of-type(1){grid-column:1!important;margin:0!important;max-width:650px!important;font:760 clamp(34px,3.75vw,51px)/1.08 system-ui,sans-serif!important;letter-spacing:-.057em!important;color:var(--ex-ink)!important}
 .slp-engine .slp-exp-features-intro > p:nth-of-type(2){grid-column:2!important;margin:0!important;max-width:430px!important;font:400 15px/1.64 system-ui,sans-serif!important;letter-spacing:-.005em!important;color:var(--ex-muted)!important}
-.slp-engine .slp-exp-feature-grid{display:grid!important;grid-template-columns:repeat(12,minmax(0,1fr))!important;gap:12px!important;margin:46px 0 0!important;max-width:none!important}
-.slp-engine .slp-exp-feature-grid > *{min-width:0!important;min-height:205px!important;display:flex!important;flex-direction:column!important;align-items:flex-start!important;gap:17px!important;padding:27px 29px!important;background:#f0f0e8!important;border:1px solid var(--ex-rule)!important;border-radius:2px!important;box-shadow:none!important}
+.slp-engine .slp-exp-feature-grid{display:grid!important;grid-template-columns:repeat(12,minmax(0,1fr))!important;gap:12px!important;margin:30px 0 0!important;max-width:none!important}
+.slp-engine .slp-exp-feature-grid > *{min-width:0!important;min-height:164px!important;display:flex!important;flex-direction:column!important;align-items:flex-start!important;gap:14px!important;padding:22px 25px!important;background:#f0f0e8!important;border:1px solid var(--ex-rule)!important;border-radius:2px!important;box-shadow:none!important}
 .slp-engine .slp-exp-feature-grid > *:nth-child(4n+1),.slp-engine .slp-exp-feature-grid > *:nth-child(4n+4){grid-column:span 7!important}
 .slp-engine .slp-exp-feature-grid > *:nth-child(4n+2),.slp-engine .slp-exp-feature-grid > *:nth-child(4n+3){grid-column:span 5!important}
 .slp-engine .slp-exp-feature-grid > *:first-child{background:#204735!important;border-color:#204735!important}
@@ -19,14 +19,14 @@
 .slp-engine .slp-exp-feature-grid > * > div:last-child{flex:1!important;min-width:0!important}
 .slp-engine .slp-exp-feature-grid > * p:first-child{margin:0!important;font:720 21px/1.21 system-ui,sans-serif!important;letter-spacing:-.033em!important;color:var(--ex-ink)!important}
 .slp-engine .slp-exp-feature-grid > * p:last-child{margin:9px 0 0!important;max-width:480px!important;font:400 14px/1.55 system-ui,sans-serif!important;color:#475f4e!important}
-.slp-engine .slp-exp-pricing{background:#e7eee5!important;color:var(--ex-ink)!important;padding:86px clamp(22px,5vw,72px) 91px!important;margin:0!important;max-width:none!important;border-top:1px solid #d4dfd3!important;border-bottom:1px solid #d4dfd3!important}
+.slp-engine .slp-exp-pricing{background:#e7eee5!important;color:var(--ex-ink)!important;padding:60px clamp(22px,5vw,72px) 66px!important;margin:0!important;max-width:none!important;border-top:1px solid #d4dfd3!important;border-bottom:1px solid #d4dfd3!important}
 .slp-engine .slp-exp-pricing > div{max-width:1180px!important;margin:0 auto!important;padding:0!important}
-.slp-engine .slp-exp-pricing-intro{max-width:none!important;display:grid!important;grid-template-columns:1.1fr .9fr!important;align-items:end!important;gap:48px!important;text-align:left!important;margin:0 0 49px!important}
+.slp-engine .slp-exp-pricing-intro{max-width:none!important;display:grid!important;grid-template-columns:1.1fr .9fr!important;align-items:end!important;gap:48px!important;text-align:left!important;margin:0 0 32px!important}
 .slp-engine .slp-exp-pricing-intro > h2{margin:0!important;max-width:690px!important;font:740 clamp(34px,3.8vw,52px)/1.09 system-ui,sans-serif!important;letter-spacing:-.054em!important;color:var(--ex-ink)!important}
 .slp-engine .slp-exp-pricing-intro > p{margin:0!important;max-width:400px!important;font:400 15px/1.62 system-ui,sans-serif!important;color:var(--ex-muted)!important}
 .slp-engine .slp-exp-plan-grid{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:12px!important;align-items:stretch!important;margin:0!important}
-.slp-engine .slp-exp-plan{display:flex!important;flex-direction:column!important;min-width:0!important;width:100%!important;max-width:none!important;margin:0!important;padding:30px 27px!important;text-align:left!important;border:1px solid #d2dbd0!important;border-radius:2px!important;box-shadow:none!important;background:#fbf9f2!important;color:var(--ex-ink)!important}
-.slp-engine .slp-exp-plan-2{background:#fff8e9!important;border:2px solid #ab6b49!important;padding:29px 26px!important}
+.slp-engine .slp-exp-plan{display:flex!important;flex-direction:column!important;min-width:0!important;width:100%!important;max-width:none!important;margin:0!important;padding:26px 24px!important;text-align:left!important;border:1px solid #d2dbd0!important;border-radius:2px!important;box-shadow:none!important;background:#fbf9f2!important;color:var(--ex-ink)!important}
+.slp-engine .slp-exp-plan-2{background:#fff8e9!important;border:2px solid #ab6b49!important;padding:25px 23px!important}
 .slp-engine .slp-exp-plan > h3{font:750 25px/1.17 system-ui,sans-serif!important;letter-spacing:-.034em!important;color:var(--ex-ink)!important;margin:0 0 12px!important}
 .slp-engine .slp-exp-plan > p{min-height:45px!important;margin:0!important;font:400 13px/1.5 system-ui,sans-serif!important;color:#435e4d!important}
 .slp-engine .slp-exp-plan > div:has(.text-5xl){display:flex!important;justify-content:flex-start!important;align-items:baseline!important;gap:3px!important;margin:23px 0 25px!important}
@@ -79,3 +79,6 @@
 .slp-engine .slp-exp-footer{padding:25px 20px!important;display:flex!important;flex-direction:column!important;gap:16px!important}
 .slp-engine .slp-exp-footer ul{margin:0!important;gap:11px!important}
 }
+/* Preserve accessible text on the featured first benefit despite generic p overrides. */
+.slp-engine .slp-exp-feature-grid > *:first-child p:first-child{color:#f8f6eb!important}
+.slp-engine .slp-exp-feature-grid > *:first-child p:last-child{color:#dcebdc!important}

@@ -76,7 +76,8 @@ export function composeSections({project,output}){
  const parsed=annotateSections(site.sources.page);
  safeCopy(site.root,dest);
  writeFileSync(resolve(dest,site.entry),parsed.source);
- const css=readFileSync(fileURLToPath(new URL("./sections.css",import.meta.url)),"utf8");
+ if(site.sources.page.includes("slp-editorial-priority"))throw Error("Editorial priority marker collision");
+ const css=readFileSync(fileURLToPath(new URL("./sections.css",import.meta.url)),"utf8").replaceAll(".slp-engine", ".slp-engine:not(#slp-editorial-priority)");
  writeFileSync(resolve(dest,dirname(site.entry),CSS_FILE),css);
  const report={product:site.product,featureCount:parsed.featureCount,planCount:parsed.planCount,
   sourceHash:parsed.sourceHash,resultHash:parsed.resultHash,

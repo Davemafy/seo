@@ -4,6 +4,9 @@ on:
     branches: [main]
     paths:
       - .github/workflows/premium-sections.yml
+      - src/engine/sections.mjs
+      - src/engine/sections.css
+      - test/sections.test.mjs
   workflow_dispatch:
 permissions:
   contents: read
