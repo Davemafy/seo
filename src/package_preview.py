@@ -19,6 +19,7 @@ FILES = [
     "src/sloppertizer-landing.css",
     "src/sloppertizer-composition.css",
     "src/sloppertizer-demo.css",
+    "src/sloppertizer-polish.css",
     "src/components/ui/button.tsx",
     "src/components/ui/accordion.tsx",
     "src/lib/utils.ts",
@@ -39,7 +40,7 @@ router_import = 'import { createFileRoute, Link } from "@tanstack/react-router";
 start_marker = 'export const Route = createFileRoute("/")({'
 end_marker = 'type Capability = {'
 if not all([router_import in tsx, 'data-composition="stage-led"' in tsx,
-            'className="slp-demo"' in tsx, 'function Landing()' in tsx]):
+            'className="slp-demo slp-demo--refined"' in tsx, 'function Landing()' in tsx]):
     raise RuntimeError("Not the verified Stage-led candidate")
 a, b = tsx.index(start_marker), tsx.index(end_marker)
 if b <= a or tsx.find(start_marker, a + 1) != -1:

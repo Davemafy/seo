@@ -11,8 +11,16 @@ try{
     page.on("pageerror",e=>errors.push(e.message));
     const r=await page.goto(url,{waitUntil:"networkidle",timeout:45000});
     assert.equal(r?.status(),200,view+": preview HTTP status");
-    assert.match(await page.locator("h1").innerText(),/Less busywork/,view+": redesigned headline");
+    assert.match(await page.locator("h1").innerText(),/Meetings end/,view+": redesigned headline");
     assert.ok(await page.getByText(/Unofficial redesign/).count()>0,view+": honest attribution banner");
+    const first=page.getByRole("button",{name:"Mark rollback checklist reviewed"});
+    assert.equal(await first.count(),1,view+": interactive sample task");
+    await first.click();
+    const marked=page.getByRole("button",{name:"Unmark rollback checklist reviewed"});
+    assert.equal(await marked.getAttribute("aria-pressed"),"true",view+": review button toggles");
+    assert.ok(await page.getByText("1 TO REVIEW").count()>0,view+": review counter updates");
+    await page.getByRole("button",{name:"Mark capacity check reviewed"}).click();
+    assert.ok(await page.getByText("ALL REVIEWED").count()>0,view+": both tasks reviewed");
     const tabs=page.getByRole("tab");
     assert.equal(await tabs.count(),6,view+": capabilities must remain interactive");
     await tabs.nth(2).click();
