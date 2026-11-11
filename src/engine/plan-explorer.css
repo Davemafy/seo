@@ -1,0 +1,139 @@
+/* Source-grounded interactive pricing. Styling is scoped; no fabricated proof. */
+.slp-engine .slp-exp-pricing-intro > .slp-plan-explorer{
+  grid-column:2;
+  min-width:0;
+  width:100%;
+  padding:16px 18px 17px;
+  background:#193b2e;
+  color:#f7f5ec;
+  border:1px solid #193b2e;
+  border-radius:3px;
+  box-shadow:0 3px 0 #c5d2c4;
+  align-self:stretch;
+  text-align:left;
+}
+.slp-engine .slp-plan-explorer-heading{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  color:#d0e1cf;
+  font:700 9px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;
+  letter-spacing:.11em;
+  margin:0 0 10px;
+}
+.slp-engine .slp-plan-explorer-heading span:last-child{color:#eed0aa}
+.slp-engine .slp-plan-explorer-tabs{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:5px;
+}
+.slp-engine .slp-plan-explorer-tab{
+  appearance:none;
+  display:block;
+  width:100%;
+  min-width:0;
+  min-height:35px;
+  padding:7px 4px;
+  margin:0;
+  font:700 11px/1.3 ui-sans-serif,system-ui,sans-serif;
+  background:#2e5140;
+  border:1px solid #5b7b65;
+  border-radius:2px;
+  box-shadow:none;
+  color:#eaf0e5;
+  cursor:pointer;
+  text-align:center;
+}
+.slp-engine .slp-plan-explorer-tab:hover{background:#42644e;color:#fff}
+.slp-engine .slp-plan-explorer-tab.is-selected,
+.slp-engine .slp-plan-explorer-tab[aria-pressed=true]{
+  background:#f4f0e7;
+  color:#173a2b;
+  border-color:#f4f0e7;
+}
+.slp-engine .slp-plan-explorer-tab:focus-visible,
+.slp-engine .slp-plan-explorer-link:focus-visible{
+  outline:3px solid #f6d1a3;
+  outline-offset:3px;
+}
+.slp-engine .slp-plan-explorer-content{
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr);
+  column-gap:20px;
+  row-gap:10px;
+  align-items:start;
+  padding-top:12px;
+}
+.slp-engine .slp-plan-explorer-price{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:4px;
+  min-width:89px;
+}
+.slp-engine .slp-plan-explorer-price strong{
+  margin:0;
+  font:750 clamp(28px,2.9vw,35px)/1 system-ui,sans-serif;
+  letter-spacing:-.065em;
+  color:#f9f5e9;
+}
+.slp-engine .slp-plan-explorer-price span{
+  font:500 10px/1.5 system-ui,sans-serif;
+  color:#d4e1d0;
+}
+.slp-engine .slp-plan-explorer-content ul{
+  list-style:none;
+  display:flex;
+  flex-direction:column;
+  justify-content:flex-start;
+  gap:5px;
+  margin:0!important;
+  padding:2px 0 0!important;
+  min-width:0;
+}
+.slp-engine .slp-plan-explorer-content li{
+  display:block;
+  padding:0;
+  margin:0;
+  color:#e3eee0;
+  font:500 11px/1.38 system-ui,sans-serif;
+}
+.slp-engine .slp-plan-explorer-content li:before{
+  content:"";
+  display:inline-block;
+  width:4px;
+  height:4px;
+  margin:0 7px 2px 0;
+  border-radius:50%;
+  background:#eac493;
+}
+.slp-engine .slp-plan-explorer-link{
+  grid-column:1/-1;
+  width:fit-content;
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  color:#f6d1a3;
+  text-decoration:none;
+  border-bottom:1px solid #bc9872;
+  font:650 10px/1.5 system-ui,sans-serif;
+  padding:0 0 2px;
+  margin-top:0;
+}
+.slp-engine .slp-plan-explorer-link:hover{color:#fff;border-color:#fff}
+.slp-engine [id^="slp-source-plan-"]{scroll-margin-top:24px}
+@media(max-width:970px){
+ .slp-engine .slp-exp-pricing-intro > .slp-plan-explorer{grid-column:1;margin-top:2px}
+}
+@media(max-width:680px){
+ .slp-engine .slp-exp-pricing-intro > .slp-plan-explorer{padding:14px 14px 15px}
+ .slp-engine .slp-plan-explorer-heading{font-size:8.5px}
+ .slp-engine .slp-plan-explorer-tab{min-height:44px;font-size:11px}
+ .slp-engine .slp-plan-explorer-content{column-gap:14px;padding-top:11px}
+ .slp-engine .slp-plan-explorer-price strong{font-size:30px}
+ .slp-engine .slp-plan-explorer-content li{font-size:10.5px}
+ .slp-engine .slp-plan-explorer-link{font-size:11px}
+}
+@media(prefers-reduced-motion:reduce){
+ .slp-engine .slp-plan-explorer-tab{transition:none}
+}

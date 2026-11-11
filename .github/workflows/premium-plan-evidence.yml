@@ -1,0 +1,124 @@
+name: Portable source-proof plan explorer — independent Cactus
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/premium-plan-evidence.yml
+      - src/engine/plan-explorer.mjs
+      - src/engine/plan-explorer.css
+      - test/plan-explorer.test.mjs
+      - test/plan-explorer-browser.mjs
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: sloppertizer-source-proof
+  cancel-in-progress: false
+jobs:
+  build:
+    name: Automatically compose and verify real plan evidence
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/download-artifact@v4
+        with:
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          run-id: 43010629241
+          name: cactus-premium-editorial-source
+          path: source
+      - uses: actions/download-artifact@v4
+        with:
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          run-id: 43010629241
+          name: cactus-premium-editorial-evidence
+          path: before
+      - name: Install engine and browser (without inference secrets)
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx playwright install --with-deps chromium
+          npm test
+      - name: Compose real plan selection from AST literal facts
+        run: node src/engine/plan-explorer.mjs --project source --output candidate
+      - name: Build generated React product unchanged outside pricing explanation
+        run: |
+          npm ci --prefix candidate --legacy-peer-deps --ignore-scripts --no-audit --no-fund
+          npm --prefix candidate run build
+      - name: Run interactive page and screenshot at 1440/390px
+        run: |
+          npm --prefix candidate run dev -- --host 127.0.0.1 --port 3000 --strictPort >/tmp/plan-explorer.log 2>&1 &
+          for i in $(seq 1 45); do curl -fsS http://127.0.0.1:3000/ >/dev/null 2>&1 && break; sleep 1; done
+          node test/plan-explorer-browser.mjs http://127.0.0.1:3000/
+          node src/engine/capture.mjs --url http://127.0.0.1:3000/ --output screenshots
+      - name: Reject mobile, navigation and accessibility regressions
+        id: gate
+        continue-on-error: true
+        run: node src/engine/selection.mjs --before before/rendered/report.json --after screenshots/report.json --output gate.json
+      - name: Strip installed dependencies from candidate artifact
+        if: always()
+        run: rm -rf candidate/node_modules
+      - name: Preserve real evidence, even on rejection
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cactus-source-proof-evidence
+          path: |
+            screenshots/
+            gate.json
+          retention-days: 14
+          if-no-files-found: warn
+      - name: Preserve bounded composed candidate
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cactus-source-proof-candidate
+          path: candidate/
+          retention-days: 14
+          if-no-files-found: warn
+      - name: Reject an unverified or broken candidate
+        if: steps.gate.outcome == 'failure'
+        run: exit 1
+  visual-jury:
+    name: Independent jury with strict product-evidence score
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/download-artifact@v4
+        with:
+          name: cactus-source-proof-evidence
+          path: after
+      - uses: actions/download-artifact@v4
+        with:
+          name: cactus-baseline
+          run-id: 42990093112
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: original
+      - name: Independent multi-axis screenshot review
+        env:
+          VULTR_INFERENCE_API_KEY: ${{ secrets.VULTR_INFERENCE_API_KEY }}
+        run: |
+          test -n "$VULTR_INFERENCE_API_KEY" || (echo "::error::Vultr inference key missing" && exit 1)
+          node src/engine/visual-jury.mjs --original original/desktop.png --candidate after/screenshots/desktop.png --mobile after/screenshots/mobile.png --output plan-evidence-jury.json
+      - name: Save evidence including fail verdict
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cactus-source-proof-jury
+          path: plan-evidence-jury.json
+          retention-days: 14
