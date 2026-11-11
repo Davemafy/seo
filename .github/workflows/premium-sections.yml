@@ -1,0 +1,107 @@
+name: Portable premium editorial sections and visual quality jury
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/premium-sections.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: premium-cactus-section-gate
+  cancel-in-progress: false
+jobs:
+  verify:
+    name: Build and audit independent compositional redesign
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: actions/download-artifact@v4
+        with:
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          run-id: 43005387856
+          name: premium-contrast-repaired-source
+          path: previous
+      - uses: actions/download-artifact@v4
+        with:
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          run-id: 43005387856
+          name: premium-contrast-evidence
+          path: baseline
+      - name: Install engine and Chromium in a credential-free job
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: Compose real features and pricing without rewriting copy or application logic
+        run: node src/engine/sections.mjs --project previous --output candidate
+      - name: Build independent React candidate
+        run: |
+          npm ci --prefix candidate --legacy-peer-deps --ignore-scripts --no-audit --no-fund
+          npm --prefix candidate run build
+      - name: Capture actual desktop/mobile page and WCAG checks
+        run: |
+          npm --prefix candidate run dev -- --host 127.0.0.1 --port 3000 --strictPort >/tmp/premium-sections.log 2>&1 &
+          for i in $(seq 1 45); do curl -fsS http://127.0.0.1:3000/ >/dev/null 2>&1 && break; sleep 1; done
+          node src/engine/capture.mjs --url http://127.0.0.1:3000/ --output screenshots
+      - name: Reject contrast, geometry and functionality regressions
+        id: gate
+        continue-on-error: true
+        run: node src/engine/selection.mjs --before baseline/after/report.json --after screenshots/report.json --output gate.json
+      - name: Preserve full review artifacts even on rejection
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: premium-editorial-candidate
+          path: |
+            candidate/src/App.tsx
+            candidate/src/sloppertizer.sections.css
+            candidate/sloppertizer-editorial-report.json
+            screenshots/
+            gate.json
+          retention-days: 14
+          if-no-files-found: warn
+      - name: Reject visually inaccessible candidate
+        if: steps.gate.outcome == 'failure'
+        run: exit 1
+  jury:
+    name: Independent multimodal art-direction review (advisory)
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/download-artifact@v4
+        with:
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          run-id: 42997189529
+          name: premium-layout-editorial-stage
+          path: original
+      - uses: actions/download-artifact@v4
+        with:
+          name: premium-editorial-candidate
+          path: result
+      - name: Compare the real new desktop/mobile screenshots against original
+        env:
+          VULTR_INFERENCE_API_KEY: ${{ secrets.VULTR_INFERENCE_API_KEY }}
+        run: |
+          test -n "$VULTR_INFERENCE_API_KEY" || (echo "::error::Missing Vultr inference secret" && exit 1)
+          node src/engine/visual-jury.mjs --original original/baseline-settled/desktop.png --candidate result/screenshots/desktop.png --mobile result/screenshots/mobile.png --output jury.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: premium-editorial-jury
+          path: jury.json
+          retention-days: 14
