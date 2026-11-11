@@ -11,8 +11,9 @@ const END='<section id="features" className="slp-capabilities">';
 const IMPORT='import "../sloppertizer-composition.css";';
 const hash=x=>createHash("sha256").update(x).digest("hex");
 export function splitSource(s){
-  const a=s.indexOf(OPEN),b=s.indexOf(END);
-  if(a<0||b<=a||s.indexOf(OPEN,a+1)!==-1||s.indexOf(END,b+1)!==-1)throw Error("Expected exactly one verified hero and section marker");
+  const markers=[...s.matchAll(/<section className="slp-hero(?: slp-cmp [^"]+)?"/g)];
+  const a=markers.length===1?markers[0].index:-1,b=s.indexOf(END);
+  if(markers.length!==1||a<0||b<=a||s.indexOf(END,b+1)!==-1)throw Error("Expected exactly one verified hero and section marker");
   if(!s.includes('import "../sloppertizer-landing.css";'))throw Error("Source must be Pass 2");
   return {before:s.slice(0,a),hero:s.slice(a,b),after:s.slice(b)};
 }
