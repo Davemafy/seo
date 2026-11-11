@@ -1,0 +1,67 @@
+name: Sloppertizer public visual preview
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/pages-preview.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: sloppertizer-static-preview
+  cancel-in-progress: false
+jobs:
+  build:
+    name: Build isolated static redesign preview
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/download-artifact@v4
+        with:
+          name: stage-led-detailed-source
+          run-id: 42978114289
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: candidate
+      - name: Package client-only landing from verified experiment
+        run: python3 src/package_preview.py candidate preview
+      - name: Install frontend dependencies without lifecycle scripts
+        run: npm --prefix preview install --ignore-scripts --no-audit --no-fund
+      - name: Build static browser app
+        run: npm --prefix preview run build
+      - name: Verify static output and attribution
+        run: |
+          test -f preview/public-preview/index.html
+          test -f preview/LICENSE
+          test ! -e preview/.env
+          grep -q '/seo/' preview/public-preview/index.html
+          ! grep -R -l 'VULTR_INFERENCE_API_KEY' preview/public-preview
+      - name: Preserve deployable static artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sloppertizer-visual-preview-static
+          path: preview/public-preview/
+          retention-days: 14
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: Upload GitHub Pages bundle
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: preview/public-preview/
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy separate preview
+        id: deployment
+        uses: actions/deploy-pages@v4
