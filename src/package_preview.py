@@ -20,6 +20,7 @@ FILES = [
     "src/sloppertizer-composition.css",
     "src/sloppertizer-demo.css",
     "src/sloppertizer-polish.css",
+    "src/sloppertizer-finish.css",
     "src/components/ui/button.tsx",
     "src/components/ui/accordion.tsx",
     "src/lib/utils.ts",

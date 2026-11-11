@@ -21,6 +21,9 @@ try{
     assert.ok(await page.getByText("1 TO REVIEW").count()>0,view+": review counter updates");
     await page.getByRole("button",{name:"Mark capacity check reviewed"}).click();
     assert.ok(await page.getByText("ALL REVIEWED").count()>0,view+": both tasks reviewed");
+    assert.match(await page.locator("#features h2").innerText(),/Write it\. Plan it\./,view+": tool section heading");
+    assert.match(await page.locator(".slp-approach-title").innerText(),/AI prepares\./,view+": product trust headline");
+    assert.match(await page.locator(".slp-cta-title").innerText(),/Less to chase\./,view+": stronger closing copy");
     const tabs=page.getByRole("tab");
     assert.equal(await tabs.count(),6,view+": capabilities must remain interactive");
     await tabs.nth(2).click();
@@ -35,8 +38,18 @@ try{
       overflow:document.documentElement.scrollWidth>innerWidth+2,
       broken:[...document.images].filter(i=>!i.complete||!i.naturalWidth).length,
       demo:!!document.querySelector(".slp-demo"),
+      tabLayout:getComputedStyle(document.querySelector(".slp-cap-list")).display,
+      tabRows:[...new Set([...document.querySelectorAll('[role="tab"]')].map(t=>Math.round(t.getBoundingClientRect().y)))].length,
+      tabMinHeight:Math.min(...[...document.querySelectorAll('[role="tab"]')].map(t=>t.getBoundingClientRect().height)),
+      pageHeight:document.documentElement.scrollHeight,
     }));
     assert(!dom.overflow&&!dom.broken&&dom.demo,view+": layout/assets/demo");
+    if(view==="mobile"){
+      assert.equal(dom.tabLayout,"grid",view+": compact tabs");
+      assert.equal(dom.tabRows,3,view+": six tabs in three visible rows");
+      assert(dom.tabMinHeight>=44,view+": tap targets");
+      assert(dom.pageHeight<3800,view+": page height regression");
+    }
     assert.deepEqual(errors,[],view+": no runtime errors");
     console.log(view+" static preview passed",dom);
     await page.close();

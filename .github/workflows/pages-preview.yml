@@ -6,6 +6,7 @@ on:
       - .github/workflows/pages-preview.yml
       - src/package_preview.py
       - src/polish_preview.py
+      - src/finish_preview.py
       - src/verify-static-preview.mjs
   workflow_dispatch:
 permissions:
@@ -35,8 +36,10 @@ jobs:
           path: candidate
       - name: Apply scoped brand and interactive demo improvements
         run: python3 src/polish_preview.py candidate candidate-polished
+      - name: Apply independently verified editorial finish
+        run: python3 src/finish_preview.py candidate-polished candidate-finished
       - name: Package client-only landing from verified experiment
-        run: python3 src/package_preview.py candidate-polished preview
+        run: python3 src/package_preview.py candidate-finished preview
       - name: Install frontend dependencies without lifecycle scripts
         run: npm --prefix preview install --ignore-scripts --no-audit --no-fund
       - name: Build static browser app
