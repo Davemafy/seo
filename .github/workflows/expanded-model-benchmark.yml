@@ -1,0 +1,219 @@
+name: Sloppertizer — expanded visual model and asset benchmark
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/expanded-model-benchmark.yml
+      - src/engine/asset-benchmark.mjs
+      - test/asset-benchmark.test.mjs
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: sloppertizer-expanded-model-benchmark
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    name: Three coding models, identical Cactus source and screenshots
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: actions/download-artifact@v4
+        with:
+          name: cactus-premium-editorial-source
+          run-id: 43010629241
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: source
+      - uses: actions/download-artifact@v4
+        with:
+          name: cactus-premium-editorial-evidence
+          run-id: 43010629241
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: baseline
+      - name: Install engine and run tests (no target code execution)
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm test
+      - name: Render identical bounded CSS candidates from all three text models
+        env:
+          VULTR_INFERENCE_API_KEY: ${{ secrets.VULTR_INFERENCE_API_KEY }}
+        run: |
+          test -n "$VULTR_INFERENCE_API_KEY" || (echo "::error::Missing Vultr inference secret" && exit 1)
+          node src/engine/model-benchmark.mjs --action generate \
+            --project source \
+            --desktop baseline/rendered/desktop.png \
+            --mobile baseline/rendered/mobile.png \
+            --report baseline/rendered/report.json \
+            --models mimo-v2.6-pro,minimax-m3.1-flash,glm-5.2 \
+            --output candidates
+      - name: Keep every model response and failure, never deploy
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: expanded-model-candidates
+          path: candidates/
+          retention-days: 14
+          if-no-files-found: warn
+
+  assets:
+    name: Evaluate original website-safe artwork vs licensed-restricted Qwen
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: actions/download-artifact@v4
+        with:
+          name: cactus-premium-editorial-source
+          run-id: 43010629241
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: source
+      - name: Install and run API-independent tests
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          node --test test/asset-benchmark.test.mjs
+      - name: Generate two isolated art-direction samples, never integrate or publish
+        env:
+          VULTR_INFERENCE_API_KEY: ${{ secrets.VULTR_INFERENCE_API_KEY }}
+        run: |
+          test -n "$VULTR_INFERENCE_API_KEY" || (echo "::error::Missing Vultr inference secret" && exit 1)
+          node src/engine/asset-benchmark.mjs --project source --output image-evidence
+      - name: Retain art-direction images and Qwen research-license warning
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: expanded-model-image-evidence
+          path: image-evidence/
+          retention-days: 14
+          if-no-files-found: warn
+
+  verify:
+    name: Build and browse ${{ matrix.model }} with no inference key
+    needs: generate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        model: [mimo-v2.6-pro, minimax-m3.1-flash, glm-5.2]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: actions/download-artifact@v4
+        with:
+          name: expanded-model-candidates
+          path: candidates
+      - uses: actions/download-artifact@v4
+        with:
+          name: cactus-premium-editorial-evidence
+          run-id: 43010629241
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: baseline
+      - name: Install isolated browser harness
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx playwright install chromium --only-shell
+      - name: Verify real generated React app without keys
+        id: browser
+        continue-on-error: true
+        run: |
+          set -e
+          MODEL='${{ matrix.model }}'
+          mkdir -p "results/$MODEL"
+          test -f "candidates/$MODEL/package.json"
+          npm ci --prefix "candidates/$MODEL" --legacy-peer-deps --ignore-scripts --no-audit --no-fund
+          npm --prefix "candidates/$MODEL" run build
+          npm --prefix "candidates/$MODEL" run dev -- --host 127.0.0.1 --port 3000 --strictPort >/tmp/slp-bakeoff.log 2>&1 &
+          for i in $(seq 1 45); do curl -fsS http://127.0.0.1:3000/ >/dev/null 2>&1 && break; sleep 1; done
+          node src/engine/capture.mjs --url http://127.0.0.1:3000/ --output "results/$MODEL"
+          node src/engine/selection.mjs \
+            --before baseline/rendered/report.json \
+            --after "results/$MODEL/report.json" \
+            --output "results/$MODEL/gate.json"
+      - name: Save actual desktop/mobile screenshots, WCAG and rejection evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: expanded-model-verified-${{ matrix.model }}
+          path: results/
+          retention-days: 14
+          if-no-files-found: warn
+
+  judge:
+    name: Independent image-calibrated jury, no automatic model switch
+    needs: verify
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: expanded-model-verified-*
+          merge-multiple: true
+          path: results
+      - uses: actions/download-artifact@v4
+        with:
+          name: vision-calibration-evidence
+          run-id: 43036342842
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: calibration
+      - uses: actions/download-artifact@v4
+        with:
+          name: cactus-baseline
+          run-id: 42990093112
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: original
+      - name: Compare only actual screenshots with independent vision model
+        env:
+          VULTR_INFERENCE_API_KEY: ${{ secrets.VULTR_INFERENCE_API_KEY }}
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          test -n "$VULTR_INFERENCE_API_KEY" || (echo "::error::Missing Vultr inference secret" && exit 1)
+          node src/engine/model-benchmark.mjs --action judge \
+            --original original/desktop.png \
+            --results results \
+            --vision calibration/calibration-results.json \
+            --models mimo-v2.6-pro,minimax-m3.1-flash,glm-5.2 \
+            --output expanded-model-result.json
+      - name: Preserve complete visual verdict and failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: expanded-model-final-review
+          path: |
+            expanded-model-result.json
+            results/*/jury.json
+          retention-days: 14
+          if-no-files-found: warn
