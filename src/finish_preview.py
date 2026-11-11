@@ -372,12 +372,12 @@ REPLACEMENTS = [
 SECTION_TEXT = {
     "slp-section-desc": "Email drafts, meeting summaries, task plans, research, chat and reusable prompts. Choose a tool below to explore a sample.",
     "slp-approach-body": "Automation should make the next decision easier, not make it for you. Summaries, drafts and plans are starting points. Check the details, make your edits, and decide what moves forward. For privacy and model-processing information, read the product policy.",
-    "slp-cta-desc": "A meeting to summarize? A follow-up to draft? Start with the tool that fits what is next."
+    "slp-cta-desc": "Start with the meeting note, email draft, or task list in front of you. Use the tool that gets the next step moving."
 }
 
 SECTION_HEADINGS = {
     "slp-approach-title": 'AI prepares.<br /><em className="slp-italic">You decide.</em>',
-    "slp-cta-title": 'Make room for<br /><em className="slp-italic">the next big thing.</em>'
+    "slp-cta-title": 'Less to chase.<br /><em className="slp-italic">More to finish.</em>'
 }
 
 def replace_tag_contents(text, tag, class_name, new):

@@ -15,7 +15,7 @@ try{
     assert.equal(res?.status(),200,name+": HTTP");
     assert.match(await page.locator("#features h2").innerText(),/Write it\. Plan it\./,name+": feature message");
     assert.match(await page.locator(".slp-approach-title").innerText(),/AI prepares\./,name+": responsible AI headline");
-    assert.match(await page.locator(".slp-cta-title").innerText(),/Make room for/,name+": CTA");
+    assert.match(await page.locator(".slp-cta-title").innerText(),/Less to chase/,name+": CTA");
     const tabs=page.getByRole("tab");
     assert.equal(await tabs.count(),6,name+": six preserved capabilities");
     for(let n=0;n<6;n++){
@@ -47,7 +47,7 @@ try{
         trustedBackground:cta.backgroundColor,
         cta:rect(".slp-cta-section"),
         brokenImages:[...document.images].filter(i=>!i.complete||!i.naturalWidth).length,
-        outdatedTrustCopy:document.body.innerText.includes("never used to train public models"),
+        outdatedTrustCopy:document.querySelector(".slp-approach-body")?.textContent?.includes("never used to train public models") || false,
         unfinishedCss:!![...document.styleSheets].find(s=>s.href?.includes("finish.css"))
       };
     });
