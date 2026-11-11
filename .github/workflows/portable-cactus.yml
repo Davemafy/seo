@@ -1,0 +1,252 @@
+name: Portable engine — independent Cactus site
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/portable-cactus.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: sloppertizer-portable-cactus
+  cancel-in-progress: false
+
+jobs:
+  baseline:
+    name: Acquire pinned independent React website, record before images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fetch independent MIT-licensed Cactus site at pinned revision
+        run: |
+          git clone https://github.com/traintocode/landing-page-react-tailwind.git cactus
+          git -C cactus checkout --detach 0c4fcbe4e98948bf4021384d582ef3865194d98b
+          test -f cactus/LICENSE
+          cp -a cactus cactus-source
+          rm -rf cactus-source/.git
+      - name: Preserve untouched independent project source
+        uses: actions/upload-artifact@v4
+        with:
+          name: cactus-pinned-source
+          path: cactus-source/
+          retention-days: 7
+      - name: Install browser runner without credentials
+        run: |
+          npm install --ignore-scripts --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: Install and compile source with no inference keys
+        run: |
+          cd cactus
+          npm ci --legacy-peer-deps --ignore-scripts --no-audit --no-fund
+          npm run build
+      - name: Capture real original 1440px and 390px screenshots
+        run: |
+          npm --prefix cactus run dev -- --host 127.0.0.1 --port 3000 --strictPort >/tmp/cactus-original.log 2>&1 &
+          for i in $(seq 1 40); do curl -sf http://127.0.0.1:3000/ >/dev/null && break; sleep 1; done
+          node src/engine/capture.mjs --url http://127.0.0.1:3000/ --output baseline
+      - name: Export original browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cactus-baseline
+          path: baseline/
+          retention-days: 7
+          if-no-files-found: warn
+
+  generate:
+    name: Generate original Cactus-specific design, scoped CSS only
+    needs: baseline
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: cactus-pinned-source
+          path: source
+      - uses: actions/download-artifact@v4
+        with:
+          name: cactus-baseline
+          path: baseline
+      - name: Run multimodal Sloppertizer engine with Vultr inference
+        env:
+          VULTR_INFERENCE_API_KEY: ${{ secrets.VULTR_INFERENCE_API_KEY }}
+        run: |
+          test -n "$VULTR_INFERENCE_API_KEY" || (echo "::error::Missing inference key" && exit 1)
+          node src/engine/generate.mjs --project source --desktop baseline/desktop.png --mobile baseline/mobile.png --report baseline/report.json --output candidate-v1
+      - name: Export first auto-generated, unverified candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: cactus-candidate-v1
+          path: candidate-v1/
+          retention-days: 7
+
+  verify:
+    name: Build and measure generated result in no-secret worker
+    needs: generate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: cactus-candidate-v1
+          path: candidate
+      - uses: actions/download-artifact@v4
+        with:
+          name: cactus-baseline
+          path: baseline
+      - name: Install browser harness
+        run: |
+          npm install --ignore-scripts --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: Compile generated candidate without inference key
+        run: |
+          cd candidate
+          npm ci --legacy-peer-deps --ignore-scripts --no-audit --no-fund
+          npm run build
+      - name: Start site and capture real after screenshots
+        run: |
+          npm --prefix candidate run dev -- --host 127.0.0.1 --port 3000 --strictPort >/tmp/cactus-v1.log 2>&1 &
+          for i in $(seq 1 40); do curl -sf http://127.0.0.1:3000/ >/dev/null && break; sleep 1; done
+          node src/engine/capture.mjs --url http://127.0.0.1:3000/ --output redesigned
+      - name: Test navigation and viewport integrity
+        id: gate
+        continue-on-error: true
+        run: node src/engine/compare.mjs --before baseline/report.json --after redesigned/report.json --output gate-v1.json
+      - name: Export screenshots and gate result even if rejected
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cactus-evidence-v1
+          path: |
+            redesigned/
+            gate-v1.json
+          retention-days: 7
+          if-no-files-found: warn
+
+  critique:
+    name: Inspect before and after screenshots with independent multimodal critic
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: cactus-baseline
+          path: baseline
+      - uses: actions/download-artifact@v4
+        with:
+          name: cactus-evidence-v1
+          path: results
+      - name: Compare real rendered desktop and mobile output
+        env:
+          VULTR_INFERENCE_API_KEY: ${{ secrets.VULTR_INFERENCE_API_KEY }}
+        run: |
+          node src/critique.mjs --before baseline/desktop.png --after results/redesigned/desktop.png --mobile results/redesigned/mobile.png --output critique-v1.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cactus-critique-v1
+          path: critique-v1.json
+          retention-days: 7
+
+  refine:
+    name: One automatic bounded revision using screenshot critique
+    needs: critique
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: cactus-candidate-v1
+          path: candidate-v1
+      - uses: actions/download-artifact@v4
+        with:
+          name: cactus-evidence-v1
+          path: first-pass
+      - uses: actions/download-artifact@v4
+        with:
+          name: cactus-critique-v1
+          path: first-critique
+      - name: Refine CSS from real screenshots and issues without editing JSX logic
+        env:
+          VULTR_INFERENCE_API_KEY: ${{ secrets.VULTR_INFERENCE_API_KEY }}
+        run: |
+          node src/engine/generate.mjs --project candidate-v1 --desktop first-pass/redesigned/desktop.png --mobile first-pass/redesigned/mobile.png --report first-pass/redesigned/report.json --feedback first-critique/critique-v1.json --output candidate-v2
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cactus-candidate-v2
+          path: candidate-v2/
+          retention-days: 7
+
+  verify-refinement:
+    name: Verify revised design; no silent publication
+    needs: refine
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: cactus-candidate-v2
+          path: candidate-v2
+      - uses: actions/download-artifact@v4
+        with:
+          name: cactus-baseline
+          path: baseline
+      - name: Install no-key browser harness
+        run: |
+          npm install --ignore-scripts --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: Compile second candidate
+        run: |
+          cd candidate-v2
+          npm ci --legacy-peer-deps --ignore-scripts --no-audit --no-fund
+          npm run build
+      - name: Capture final desktop/mobile screenshots
+        run: |
+          npm --prefix candidate-v2 run dev -- --host 127.0.0.1 --port 3000 --strictPort >/tmp/cactus-v2.log 2>&1 &
+          for i in $(seq 1 40); do curl -sf http://127.0.0.1:3000/ >/dev/null && break; sleep 1; done
+          node src/engine/capture.mjs --url http://127.0.0.1:3000/ --output refined
+      - name: Check preservation and responsive layout against original
+        id: gate
+        continue-on-error: true
+        run: node src/engine/compare.mjs --before baseline/report.json --after refined/report.json --output gate-v2.json
+      - name: Export reproducible evidence, including rejections
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cactus-evidence-v2
+          path: |
+            refined/
+            gate-v2.json
+          retention-days: 7
+          if-no-files-found: warn
