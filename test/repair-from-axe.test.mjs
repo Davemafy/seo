@@ -13,7 +13,7 @@ test("generates grounded CSS only for failing selectors",()=>{
  const r={desktop:{accessibility:{verified:true,violations:[violation]}},mobile:{accessibility:{verified:true,violations:[violation]}}};
  const p=generatePatch(r);
  assert.equal(p.affected,1);
- assert.match(p.css,/\.slp-engine:not\(#slp-contrast-specificity\) \.pricing-card p \{ color: #[0-9a-f]{6} !important; \}/);
+ assert.match(p.css,/\.slp-engine:not\(#slp-contrast-specificity\):not\(#slp-contrast-priority\) \.pricing-card p \{ color: #[0-9a-f]{6} !important; \}/);
  assert.doesNotMatch(p.css,/padding|height|position|content:/);
 });
 test("rejects partial axe reports and unverified output",()=>{

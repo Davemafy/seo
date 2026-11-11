@@ -51,7 +51,7 @@ export function generatePatch(reports){
  const dedup=new Map();
  for(const item of failures){
   // Mobile/desktop backgrounds can differ. Do not invent a single rule where they conflict.
-  const selector='.slp-engine:not(#slp-contrast-specificity) '+item.selector;
+  const selector='.slp-engine:not(#slp-contrast-specificity):not(#slp-contrast-priority) '+item.selector;
   const color=selectedTextColor(item.background);
   if(dedup.has(selector) && dedup.get(selector)!==color)
     throw Error("Responsive foreground colors conflict; needs a viewport-specific repair");
@@ -75,7 +75,7 @@ export function repairFromAxe({project,report,output}){
  const site=discover(project),target=resolve(output);
  if(existsSync(target)||target===site.root||target.startsWith(site.root+sep)||site.root.startsWith(target+sep))
   throw Error("Output must be a separate fresh directory");
- if(site.sources.page.includes("slp-contrast-specificity"))throw Error("Specificity sentinel clashes with source");
+ if((site.sources.page.includes("slp-contrast-specificity")||site.sources.page.includes("slp-contrast-priority")))throw Error("Specificity sentinel clashes with source");
  if(!site.sources.page.includes('import "./sloppertizer.engine.css";'))
   throw Error("Only scoped engine candidates can be repaired");
  const evidence=JSON.parse(readFileSync(resolve(report),"utf8"));
