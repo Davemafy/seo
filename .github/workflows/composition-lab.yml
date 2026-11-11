@@ -1,0 +1,109 @@
+name: Pilot 01 - bounded hero composition comparison
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/composition-lab.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  generate:
+    name: Lock Pass 2 and produce two constrained layouts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: candidate-v2
+          run-id: 42884884229
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: pass2
+      - name: Produce layouts without AI inference or rewriting lower sections
+        run: |
+          node src/composition-lab.mjs --project pass2 --output stage-led --preset stage-led
+          node src/composition-lab.mjs --project pass2 --output product-canvas --preset product-canvas
+          node -e 'const fs=require("fs");for(const name of ["stage-led","product-canvas"]){const x=JSON.parse(fs.readFileSync(name+"/composition-report.json"));if(!x.tailPreserved)process.exit(1)}'
+      - name: Export both candidates
+        uses: actions/upload-artifact@v4
+        with:
+          name: bounded-hero-candidates
+          path: |
+            stage-led/
+            product-canvas/
+          retention-days: 14
+
+  verify:
+    name: Compile and inspect composition - ${{ matrix.preset }}
+    needs: generate
+    strategy:
+      fail-fast: false
+      matrix:
+        preset: [stage-led, product-canvas]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: bounded-hero-candidates
+          path: experiment
+      - uses: actions/download-artifact@v4
+        with:
+          name: candidate-v2-screens
+          run-id: 42884884229
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: pass2
+      - name: Browser and dependencies (no inference credentials)
+        run: |
+          npm install --ignore-scripts --no-audit --no-fund
+          npx playwright install --with-deps chromium
+          cd experiment/${{ matrix.preset }}
+          npm install --legacy-peer-deps --ignore-scripts --no-audit --no-fund
+      - name: Build candidate
+        env: &demo
+          VITE_SUPABASE_URL: https://example.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sloppertizer-test-only
+          VITE_SUPABASE_ANON_KEY: sloppertizer-test-only
+        run: npm --prefix experiment/${{ matrix.preset }} run build
+      - name: Render at 1440px and 390px
+        env: *demo
+        run: |
+          npm --prefix experiment/${{ matrix.preset }} run dev -- --host 127.0.0.1 --port 3000 --strictPort >/tmp/composition.log 2>&1 &
+          for i in $(seq 1 35); do curl -sf http://127.0.0.1:3000/ >/dev/null && break; sleep 1; done
+          node src/capture.mjs --url http://127.0.0.1:3000/ --output screenshots
+      - name: Assert six capability tabs, working FAQ, and existing navigation
+        run: node src/interactions.mjs http://127.0.0.1:3000/
+      - name: Compare geometry and typography with Pass 2
+        id: gate
+        continue-on-error: true
+        run: |
+          node src/visual-quality-gate.mjs --baseline pass2/candidate-shots/report.json --candidate screenshots/report.json --url http://127.0.0.1:3000/ --output composition-gate.json
+      - name: Preserve actual evidence even on rejection
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: composition-evidence-${{ matrix.preset }}
+          path: |
+            screenshots/
+            composition-gate.json
+          retention-days: 14
+          if-no-files-found: warn
+      - name: Reject visual regressions
+        if: steps.gate.outcome == 'failure'
+        run: |
+          echo "::error::Candidate has objective composition regressions; keep Pass 2."
+          exit 1
