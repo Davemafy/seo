@@ -1,0 +1,236 @@
+name: Sloppertizer — independently calibrated model benchmark
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/model-benchmark.yml
+      - src/engine/model-catalog.mjs
+      - src/engine/vision-calibration.mjs
+      - src/engine/model-benchmark.mjs
+      - src/engine/generate.mjs
+      - src/engine/visual-jury.mjs
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: sloppertizer-model-benchmark
+  cancel-in-progress: false
+
+jobs:
+  vision-fixtures:
+    name: Render two ground-truth image canaries without inference keys
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Run all pure-engine unit tests
+        run: npm ci --ignore-scripts --no-audit --no-fund && npm test
+      - name: Render canary screenshots
+        run: |
+          npx playwright install --with-deps chromium
+          node src/engine/vision-calibration.mjs --action fixtures --output canary
+      - uses: actions/upload-artifact@v4
+        with:
+          name: model-image-canaries
+          path: canary/
+          retention-days: 14
+
+  vision:
+    name: Test 5 model IDs on the same two visually different screenshots
+    needs: vision-fixtures
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/download-artifact@v4
+        with:
+          name: model-image-canaries
+          path: canary
+      - name: Install benchmark package without site code
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Verify image perception, live catalog, actual model IDs and usage
+        env:
+          VULTR_INFERENCE_API_KEY: ${{ secrets.VULTR_INFERENCE_API_KEY }}
+        run: |
+          test -n "$VULTR_INFERENCE_API_KEY" || (echo "::error::Inference secret missing" && exit 1)
+          node src/engine/vision-calibration.mjs --action benchmark --images canary --models glm-5.2,glm-5.3,qwen3.8-27b,muse-glimmer-30b,deepseek-v4.1-flash-1017 --output vision-benchmark.json
+      - name: Retain raw predictions and exact-match scores
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-vision-benchmark
+          path: vision-benchmark.json
+          retention-days: 14
+          if-no-files-found: warn
+
+  generate:
+    name: Run 3 coding models against identical Cactus source and real screenshots
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/download-artifact@v4
+        with:
+          name: cactus-premium-editorial-source
+          run-id: 43010629241
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: baseline-source
+      - uses: actions/download-artifact@v4
+        with:
+          name: cactus-premium-editorial-evidence
+          run-id: 43010629241
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: baseline-screens
+      - name: Install inference client only; do not execute target website
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Generate source-preserving CSS from 3 coding models
+        env:
+          VULTR_INFERENCE_API_KEY: ${{ secrets.VULTR_INFERENCE_API_KEY }}
+        run: |
+          test -n "$VULTR_INFERENCE_API_KEY" || (echo "::error::Inference secret missing" && exit 1)
+          node src/engine/model-benchmark.mjs --action generate \
+            --project baseline-source \
+            --desktop baseline-screens/rendered/desktop.png \
+            --mobile baseline-screens/rendered/mobile.png \
+            --report baseline-screens/rendered/report.json \
+            --models glm-5.2,glm-5.3,qwen3.8-27b \
+            --output candidates
+      - name: Preserve every candidate and failures for reproducibility
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-design-candidates
+          path: candidates/
+          retention-days: 14
+          if-no-files-found: warn
+
+  verify:
+    name: Independently build and browser-test all candidate models with no keys
+    needs: generate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/download-artifact@v4
+        with:
+          name: model-design-candidates
+          path: candidates
+      - uses: actions/download-artifact@v4
+        with:
+          name: cactus-premium-editorial-evidence
+          run-id: 43010629241
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: baseline
+      - name: Install browser harness, no model credentials
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: Build, screenshot, and evaluate every available model candidate
+        run: |
+          set +e
+          mkdir -p results
+          port=3100
+          for model in glm-5.2 glm-5.3 qwen3.8-27b; do
+            port=$((port+1))
+            mkdir -p "results/$model"
+            if test ! -f "candidates/$model/package.json"; then
+              echo "Candidate missing: $model"
+              continue
+            fi
+            npm ci --prefix "candidates/$model" --legacy-peer-deps --ignore-scripts --no-audit --no-fund
+            if [ $? -ne 0 ]; then echo "Dependency installation failed: $model"; continue; fi
+            npm --prefix "candidates/$model" run build
+            if [ $? -ne 0 ]; then echo "Build failed: $model"; continue; fi
+            npm --prefix "candidates/$model" run dev -- --host 127.0.0.1 --port "$port" --strictPort >"/tmp/$model.log" 2>&1 &
+            pid=$!
+            for i in $(seq 1 40); do curl -fsS "http://127.0.0.1:$port/" >/dev/null 2>&1 && break; sleep 1; done
+            node src/engine/capture.mjs --url "http://127.0.0.1:$port/" --output "results/$model"
+            if test -f "results/$model/report.json"; then
+              node src/engine/selection.mjs --before baseline/rendered/report.json --after "results/$model/report.json" --output "results/$model/gate.json"
+            fi
+            kill "$pid" 2>/dev/null || true
+          done
+          exit 0
+      - name: Keep browser evidence, measured regressions and WCAG failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-design-browser-results
+          path: results/
+          retention-days: 14
+          if-no-files-found: warn
+
+  evaluate:
+    name: Use image-calibrated independent judge; preserve evidence, no deployment
+    needs: [vision,verify]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/download-artifact@v4
+        with:
+          name: model-design-browser-results
+          path: results
+      - uses: actions/download-artifact@v4
+        with:
+          name: model-vision-benchmark
+          path: calibration
+      - uses: actions/download-artifact@v4
+        with:
+          name: cactus-baseline
+          run-id: 42990093112
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: original
+      - name: Install model evaluation code
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Judge only with a model that actually passed both vision canaries
+        env:
+          VULTR_INFERENCE_API_KEY: ${{ secrets.VULTR_INFERENCE_API_KEY }}
+        run: |
+          test -n "$VULTR_INFERENCE_API_KEY" || (echo "::error::Inference secret missing" && exit 1)
+          node src/engine/model-benchmark.mjs --action judge \
+            --original original/desktop.png \
+            --results results \
+            --vision calibration/vision-benchmark.json \
+            --models glm-5.2,glm-5.3,qwen3.8-27b \
+            --output model-comparison.json
+      - name: Save comparative conclusions without making a production change
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-benchmark-final-review
+          path: |
+            model-comparison.json
+            results/*/jury.json
+          retention-days: 14
+          if-no-files-found: warn

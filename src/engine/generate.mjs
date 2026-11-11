@@ -3,6 +3,7 @@ import { dirname, join, resolve, relative, sep } from "node:path";
 import { discover } from "./site.mjs";
 import { addScope, validateCss, unchangedOutsideScope, CSS_NAME } from "./scope.mjs";
 import { vultr, sha256 } from "../lib.mjs";
+import {assertActualModel} from "./model-catalog.mjs";
 
 const SYSTEM=[
   "You are Sloppertizer's visual design engine, a meticulous art director AND frontend CSS systems expert.",
@@ -51,7 +52,7 @@ function cleanCopy(from,to) {
     return !lstatSync(p).isSymbolicLink();
   }});
 }
-export async function generate({project,output,desktop,mobile,report,feedback,model="glm-5.2",provider=vultr}) {
+export async function generate({project,output,desktop,mobile,report,feedback,model=process.env.SLOPPERTIZER_DESIGN_MODEL||"glm-5.2",provider=vultr}) {
   const site=discover(project),target=resolve(output);
   if(existsSync(target)||target===site.root||target.startsWith(site.root+sep)||site.root.startsWith(target+sep))
     throw Error("Refuse output inside source or overwrite");
@@ -74,6 +75,7 @@ export async function generate({project,output,desktop,mobile,report,feedback,mo
   if(desktop){pieces.push({type:"text",text:"REAL DESKTOP SCREENSHOT: critique visual hierarchy and use the same content."});pieces.push(readImage(desktop));}
   if(mobile){pieces.push({type:"text",text:"REAL 390px MOBILE SCREENSHOT: ensure strong responsive layout and usable navigation."});pieces.push(readImage(mobile));}
   const response=await provider([{role:"system",content:SYSTEM},{role:"user",content:pieces}],model,11000);
+  assertActualModel(model,response.model);
   const draft=parseDesign(response.content);
   cleanCopy(site.root,target);
   mkdirSync(resolve(target,dirname(site.entry)),{recursive:true});

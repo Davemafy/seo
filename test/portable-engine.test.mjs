@@ -55,7 +55,7 @@ test("automated candidate generation uses mock inference and preserves source",a
     mkdirSync(join(root,"src"));writeFileSync(join(root,"package.json"),JSON.stringify({name:"cactus",devDependencies:{vite:"3.2.3"},scripts:{build:"vite build",dev:"vite"}}));
     writeFileSync(join(root,"index.html"),"<title>Cactus Studio</title>");
     writeFileSync(join(root,"src/App.tsx"),original);writeFileSync(join(root,"src/App.css"),".foo{}");
-    const provider=async messages=>({content:"===DESIGN_DIRECTION===\nCactus Studio uses careful layout and richer typography. Distinct art direction protects the original functionality.\n===DESIGN_CSS===\n"+goodCss+"\n===DESIGN_END===",model:"mock",usage:{total_tokens:0}});
+    const provider=async messages=>({content:"===DESIGN_DIRECTION===\nCactus Studio uses careful layout and richer typography. Distinct art direction protects the original functionality.\n===DESIGN_CSS===\n"+goodCss+"\n===DESIGN_END===",model:"glm-5.2",usage:{total_tokens:0}});
     const result=await generate({project:root,output:target,provider});
     assert.equal(result.product,"Cactus Studio");
     const rendered=readFileSync(join(target,"src/App.tsx"),"utf8");
