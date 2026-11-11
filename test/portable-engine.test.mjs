@@ -65,6 +65,8 @@ test("automated candidate generation uses mock inference and preserves source",a
 });
 test("compares browser quality and preserves original links/buttons",()=>{
  const b={desktop:{status:200,pageHeight:2100,headlineLines:2,headlineFontSize:40,links:[{href:"/pricing"}],buttons:[{text:"Try"}]},mobile:{status:200,pageHeight:3000,headlineLines:2,headlineFontSize:36,links:[{href:"/pricing"}],buttons:[{text:"Try"}]}};
+ b.desktop.accessibility={verified:true,contrastFailures:0,violations:[]};
+ b.mobile.accessibility={verified:true,contrastFailures:0,violations:[]};
  const c=structuredClone(b);c.mobile.links=[];
  assert.match(compareBrowser(b,c).problems.join(" "),/link missing/);
  assert.equal(compareBrowser(b,b).status,"structural-pass");

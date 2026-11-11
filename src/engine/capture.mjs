@@ -1,5 +1,6 @@
 import { writeFileSync, mkdirSync } from "node:fs";
 import { resolve, join } from "node:path";
+import { auditAccessibility,accessibilityDefects } from "./accessibility.mjs";
 const sizes={desktop:{width:1440,height:900},mobile:{width:390,height:844}};
 
 export async function capture(url,output) {
@@ -31,7 +32,9 @@ export async function capture(url,output) {
           brokenImages:[...document.images].filter(x=>!x.complete||x.naturalWidth===0).map(x=>x.currentSrc||x.src).slice(0,25)
         };
       });
-      result[view]={status:res?.status()||0,...dims,errors};
+      let accessibility;
+      try {accessibility=await auditAccessibility(page);}catch(e){accessibility={verified:false,error:String(e.message).slice(0,250)};}
+      result[view]={status:res?.status()||0,...dims,errors,accessibility};
       await page.close();
     }
   }finally{await browser.close();}
@@ -44,6 +47,7 @@ export function compareBrowser(original,proposed) {
     const b=original[name],c=proposed[name];
     if(!b||!c||c.status!==200){problems.push(name+": unavailable page");continue;}
     if(c.errors?.length||c.brokenImages?.length||c.horizontalOverflow)problems.push(name+": runtime, image or overflow regression");
+    for(const defect of accessibilityDefects(c.accessibility))problems.push(name+": "+defect);
     if(c.pageHeight>b.pageHeight*1.15)problems.push(name+": page height >15% baseline");
     if((c.headlineLines||0)>5)problems.push(name+": excessive headline wraps");
     if((c.headlineFontSize||0)<25)problems.push(name+": headline too small");
