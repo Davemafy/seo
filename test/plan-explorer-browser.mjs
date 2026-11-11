@@ -46,7 +46,17 @@ try {
             cardClass:card?.className
           };
         });
-        console.log(view+": selected-card CSS diagnosis",JSON.stringify(debug));
+        const ruleDetails=await card.evaluate(el=>({
+          selectedAttr:el.getAttribute("data-slp-selected"),
+          scopeMatch:el.matches('.slp-engine:not(#slp-plan-selection-priority):not(#slp-editorial-priority) .slp-exp-plan[data-slp-selected="true"]'),
+          neutralMatch:el.matches('.slp-engine:not(#slp-plan-selection-priority):not(#slp-editorial-priority) .slp-exp-plan[data-slp-selected="false"]'),
+          border:getComputedStyle(el).border,
+          matches:[...document.styleSheets].flatMap(sheet=>{
+            try{return [...sheet.cssRules].flatMap(rule=>rule.cssRules?[...rule.cssRules]:[rule]).filter(rule=>rule.selectorText?.includes("data-slp-selected")&&el.matches(rule.selectorText)).map(rule=>({selector:rule.selectorText,border:rule.style?.border,important:rule.style?.getPropertyPriority("border")}));}
+            catch{return [];}
+          })
+        }));
+        console.log(view+": selected-card CSS diagnosis",JSON.stringify({...debug,selectedId:item.anchor,ruleDetails}));
       }
       assert.equal(border,"rgb(171, 107, 73)",view+": selected source card matches active plan");
     }
