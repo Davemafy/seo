@@ -43,8 +43,8 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Test packaged browser app at desktop and mobile sizes
         run: |
-          npm --prefix preview exec -- vite preview --host 127.0.0.1 --port 4173 >/tmp/static-preview.log 2>&1 &
-          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:4173/seo/ >/dev/null && break; sleep 1; done
+          (cd preview && npx vite preview --host 127.0.0.1 --port 4173) >/tmp/static-preview.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:4173/seo/ >/dev/null 2>&1 && break; sleep 1; done
           node src/verify-static-preview.mjs http://127.0.0.1:4173/seo/
       - name: Verify static output and attribution
         run: |
