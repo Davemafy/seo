@@ -147,3 +147,16 @@
   .slp-story-content > .grid > *,
   .slp-story-content > div > .grid > * { transition: none !important; }
 }
+
+/* Rail composition preserves a compact two-column rhythm on wide screens.
+   It avoids creating unnecessary full-width first/last panels. */
+@media (min-width:621px) {
+ .slp-story--editorial-rail .slp-story-content > .grid > :first-child,
+ .slp-story--editorial-rail .slp-story-content > div > .grid > :first-child,
+ .slp-story--editorial-rail .slp-story-content > .grid > :last-child:nth-child(even),
+ .slp-story--editorial-rail .slp-story-content > div > .grid > :last-child:nth-child(even) {
+   grid-column: span 3 !important;
+   min-height:145px !important;
+   padding:23px 23px 25px !important;
+ }
+}
