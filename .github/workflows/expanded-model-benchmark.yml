@@ -1,11 +1,5 @@
 name: Sloppertizer — expanded visual model and asset benchmark
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/expanded-model-benchmark.yml
-      - src/engine/asset-benchmark.mjs
-      - test/asset-benchmark.test.mjs
   workflow_dispatch:
 permissions:
   contents: read
