@@ -20,9 +20,11 @@ export function readLocal(root, path) {
   if(size>90000)throw Error("Page exceeds 90KB safe model input");
   return readFileSync(full,"utf8");
 }
-function safeMeta(pkg, html) {
+function safeMeta(pkg, html, source) {
   const tag=html.match(/<title[^>]*>([^<]{2,100})<\/title>/i)?.[1]?.trim();
-  const name=tag||pkg.description||pkg.name||"Untitled website";
+  const generic=(!tag || /^(?:example|landing page|sample|vite|react|demo|untitled)/i.test(tag));
+  const visibleBrand=source.match(/<a\b[^>]*>\s*([A-Za-z][A-Za-z0-9 &-]{1,40})\s*<\/a>/)?.[1]?.trim();
+  const name=(generic && visibleBrand) ? visibleBrand : (tag||pkg.description||pkg.name||"Untitled website");
   return name.slice(0,100).replace(/[{}<>]/g,"");
 }
 export function discover(root) {
@@ -38,7 +40,7 @@ export function discover(root) {
   const cssCandidates=["src/index.css","src/App.css","src/styles.css","app/globals.css"];
   const css=cssCandidates.filter(p=>existsSync(resolve(root,p))).map(p=>readLocal(root,p)).join("\n").slice(0,25000);
   const existingSourceHash=sha256(source);
-  return {root,entry:selected.entry,framework:selected.framework,product:safeMeta(pkg,html),
+  return {root,entry:selected.entry,framework:selected.framework,product:safeMeta(pkg,html,source),
     sources:{page:source,css},diagnosis:audit(source,css),originalHash:existingSourceHash,
     scripts:{build:typeof pkg.scripts?.build==="string"?"build":null,dev:typeof pkg.scripts?.dev==="string"?"dev":null},
     preservation:{preserveAllAnchors:true,preserveHandlers:true,preserveJSX:true}};

@@ -9,7 +9,10 @@
     "critique": "node src/critique.mjs"
   },
   "dependencies": {
-    "playwright": "^1.56.1"
+    "playwright": "^1.56.1",
+    "typescript": "5.9.3"
   },
-  "engines": { "node": ">=20" }
+  "engines": {
+    "node": ">=20"
+  }
 }

@@ -1,0 +1,74 @@
+name: Premium engine - source-preserving composition A/B
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/premium-composition.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  baseline-composition:
+    name: Render Cactus with reusable ${{ matrix.layout }} layout
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        layout: [editorial-stage, artwork-focus]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: actions/download-artifact@v4
+        with:
+          name: cactus-pinned-source
+          run-id: 42990093112
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: source
+      - uses: actions/download-artifact@v4
+        with:
+          name: cactus-baseline
+          run-id: 42990093112
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: baseline
+      - name: Install composition AST and isolated browser tools
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: Apply reusable component layout to original, not site-specific code
+        run: |
+          node src/engine/composition.mjs --project source --output candidate --layout "${{ matrix.layout }}"
+      - name: Build the composed React app
+        run: |
+          npm ci --prefix candidate --legacy-peer-deps --ignore-scripts --no-audit --no-fund
+          npm --prefix candidate run build
+      - name: Render actual desktop and mobile layouts
+        run: |
+          npm --prefix candidate run dev -- --host 127.0.0.1 --port 3000 --strictPort >/tmp/cactus-composition.log 2>&1 &
+          for i in $(seq 1 40); do curl -sf http://127.0.0.1:3000/ >/dev/null && break; sleep 1; done
+          node src/engine/capture.mjs --url http://127.0.0.1:3000/ --output screenshots
+      - name: Browser integrity gate against pinned Cactus baseline
+        id: quality
+        continue-on-error: true
+        run: node src/engine/compare.mjs --before baseline/report.json --after screenshots/report.json --output gate.json
+      - name: Preserve source and rendered images
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: premium-layout-${{ matrix.layout }}
+          path: |
+            candidate/
+            screenshots/
+            gate.json
+          retention-days: 14
+          if-no-files-found: warn
+      - name: Reject broken composition
+        if: steps.quality.outcome == 'failure'
+        run: exit 1
