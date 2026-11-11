@@ -1,0 +1,66 @@
+name: Sloppertizer finishing pass - visual verification
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/finish-verify.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  verify:
+    name: Test finished sections against working interactive Stage-led
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: stage-led-detailed-source
+          run-id: 42978114289
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: source
+      - name: Add verified interactive workbench and finishing pass
+        run: |
+          python3 src/polish_preview.py source polished
+          python3 src/finish_preview.py polished finished
+      - name: Preserve candidate source
+        uses: actions/upload-artifact@v4
+        with:
+          name: finished-site-source
+          path: finished/
+          retention-days: 7
+      - name: Install browser harness
+        run: |
+          npm install --no-audit --no-fund --ignore-scripts
+          npx playwright install --with-deps chromium
+      - name: Build the full app with dummy backend values
+        env: &dummy
+          VITE_SUPABASE_URL: https://example.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sloppertizer-test-only
+          VITE_SUPABASE_ANON_KEY: sloppertizer-test-only
+        run: |
+          cd finished
+          npm install --legacy-peer-deps --ignore-scripts --no-audit --no-fund
+          npm run build
+      - name: Render and verify desktop/mobile
+        env: *dummy
+        run: |
+          npm --prefix finished run dev -- --host 127.0.0.1 --port 3000 --strictPort >/tmp/finished.log 2>&1 &
+          for i in $(seq 1 35); do curl -fsS http://127.0.0.1:3000/ >/dev/null 2>&1 && break; sleep 1; done
+          node src/capture.mjs --url http://127.0.0.1:3000/ --output finished-screens
+          node src/verify-finish.mjs http://127.0.0.1:3000/
+      - name: Save real screenshots and browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: finish-design-evidence
+          path: finished-screens/
+          retention-days: 7
+          if-no-files-found: warn
