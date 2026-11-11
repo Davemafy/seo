@@ -37,6 +37,15 @@ jobs:
         run: npm --prefix preview install --ignore-scripts --no-audit --no-fund
       - name: Build static browser app
         run: npm --prefix preview run build
+      - name: Install headless Chromium for static preview smoke test
+        run: |
+          npm install --ignore-scripts --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: Test packaged browser app at desktop and mobile sizes
+        run: |
+          npm --prefix preview exec -- vite preview --host 127.0.0.1 --port 4173 >/tmp/static-preview.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:4173/seo/ >/dev/null && break; sleep 1; done
+          node src/verify-static-preview.mjs http://127.0.0.1:4173/seo/
       - name: Verify static output and attribution
         run: |
           test -f preview/public-preview/index.html
