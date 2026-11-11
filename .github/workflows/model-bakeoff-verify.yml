@@ -1,0 +1,127 @@
+name: Sloppertizer — independent coding model bakeoff (reused inference)
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/model-bakeoff-verify.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: sloppertizer-model-bakeoff-verify
+  cancel-in-progress: false
+jobs:
+  verify:
+    name: Build and capture ${{ matrix.model }} with no inference key
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        model: [glm-5.2, glm-5.3, qwen3.8-27b]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/download-artifact@v4
+        with:
+          name: model-design-candidates
+          run-id: 43034692874
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: candidates
+      - uses: actions/download-artifact@v4
+        with:
+          name: cactus-premium-editorial-evidence
+          run-id: 43010629241
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: baseline
+      - name: Install engine + headless Chromium without apt installation
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx playwright install chromium --only-shell
+      - name: Install and compile candidate
+        run: |
+          test -f 'candidates/${{ matrix.model }}/package.json' || exit 1
+          npm ci --prefix 'candidates/${{ matrix.model }}' --legacy-peer-deps --ignore-scripts --no-audit --no-fund
+          npm --prefix 'candidates/${{ matrix.model }}' run build
+      - name: Render desktop and mobile, measure WCAG AA and links
+        run: |
+          npm --prefix 'candidates/${{ matrix.model }}' run dev -- --host 127.0.0.1 --port 3000 --strictPort >/tmp/model-bakeoff.log 2>&1 &
+          for i in $(seq 1 50); do curl -fsS http://127.0.0.1:3000/ >/dev/null 2>&1 && break; sleep 1; done
+          mkdir -p 'results/${{ matrix.model }}'
+          node src/engine/capture.mjs --url http://127.0.0.1:3000/ --output 'results/${{ matrix.model }}'
+      - name: Preserve technical gate even on rejection
+        if: always()
+        run: |
+          if test -f 'results/${{ matrix.model }}/report.json'; then
+            node src/engine/selection.mjs --before baseline/rendered/report.json --after 'results/${{ matrix.model }}/report.json' --output 'results/${{ matrix.model }}/gate.json' || true
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: model-bakeoff-${{ matrix.model }}
+          path: results/
+          retention-days: 14
+          if-no-files-found: warn
+  judge:
+    name: Compare all rendered models with image-calibrated independent critic
+    needs: verify
+    runs-on: ubuntu-latest
+    if: always()
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: model-bakeoff-*
+          merge-multiple: true
+          path: results
+      - uses: actions/download-artifact@v4
+        with:
+          name: vision-calibration-evidence
+          run-id: 43036342842
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: calibration
+      - uses: actions/download-artifact@v4
+        with:
+          name: cactus-baseline
+          run-id: 42990093112
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: original
+      - name: Install only comparison client; do not execute candidate apps with key
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Independent calibrated jury on equal rendered evidence
+        env:
+          VULTR_INFERENCE_API_KEY: ${{ secrets.VULTR_INFERENCE_API_KEY }}
+        run: |
+          test -n "$VULTR_INFERENCE_API_KEY" || (echo "::error::Inference key missing" && exit 1)
+          node src/engine/model-benchmark.mjs --action judge \
+            --original original/desktop.png \
+            --results results \
+            --vision calibration/calibration-results.json \
+            --models glm-5.2,glm-5.3,qwen3.8-27b \
+            --output model-bakeoff-result.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: model-bakeoff-final-evidence
+          path: |
+            model-bakeoff-result.json
+            results/*/jury.json
+          retention-days: 14
+          if-no-files-found: warn
