@@ -87,7 +87,7 @@ export async function vultr(messages, model = "glm-5.2", maxTokens = 22000) {
         body: JSON.stringify({
           model, messages: continuation, temperature: 0.3,
           max_completion_tokens: maxTokens,
-          reasoning: { max_tokens: 1800 }
+          reasoning: { max_tokens: Math.min(1800, Math.max(200, maxTokens - 500)) }
         }),
         signal: controller.signal
       });

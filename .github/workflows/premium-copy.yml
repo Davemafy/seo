@@ -4,6 +4,9 @@ on:
     branches: [main]
     paths:
       - .github/workflows/premium-copy.yml
+      - src/engine/editorial-copy.mjs
+      - src/lib.mjs
+      - test/editorial-copy.test.mjs
   workflow_dispatch:
 permissions:
   contents: read

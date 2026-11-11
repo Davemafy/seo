@@ -87,7 +87,7 @@ export async function improveEditorialCopy({project,output,feedback,model="glm-5
  ].join("\n");
  const facts={product:site.product,oldHeading:issue.heading.text,oldSummary:issue.summary.text,
    planNames:issue.tiers,planSource:issue.sourceFacts,priorReview:critique};
- const response=await provider([{role:"system",content:system},{role:"user",content:JSON.stringify(facts)}],model,1600);
+ const response=await provider([{role:"system",content:system},{role:"user",content:JSON.stringify(facts)}],model,3000);
  const draft=validateEditorialSuggestion(response.content,issue);
  const modified=applyEditorialCopy(site.sources.page,issue,draft);
  copySafe(site.root,target);
