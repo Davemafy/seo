@@ -1,0 +1,238 @@
+name: Premium engine — Cactus compositional redesign + visual jury
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/premium-redesign.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: sloppertizer-premium-cactus
+  cancel-in-progress: false
+
+jobs:
+  create:
+    name: Source-grounded copy plus model-generated CSS on approved composition
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: actions/download-artifact@v4
+        with:
+          name: premium-layout-editorial-stage
+          run-id: 42997189529
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: composition
+      - name: Install portable engine dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Rewrite placeholders, using only real product facts
+        env:
+          VULTR_INFERENCE_API_KEY: ${{ secrets.VULTR_INFERENCE_API_KEY }}
+        run: |
+          node src/engine/copy.mjs --project composition/candidate --output repaired-copy
+      - name: Generate CSS for the entire website around its curated hero
+        env:
+          VULTR_INFERENCE_API_KEY: ${{ secrets.VULTR_INFERENCE_API_KEY }}
+        run: |
+          node src/engine/generate.mjs --project repaired-copy \
+            --desktop composition/baseline-settled/desktop.png \
+            --mobile composition/baseline-settled/mobile.png \
+            --report composition/baseline-settled/report.json \
+            --output designed-v1
+      - name: Save model output, without node_modules or secrets
+        uses: actions/upload-artifact@v4
+        with:
+          name: premium-cactus-designed-v1
+          path: designed-v1/
+          retention-days: 14
+
+  verify-v1:
+    name: Compile, capture and check automatically generated site
+    needs: create
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: actions/download-artifact@v4
+        with:
+          name: premium-cactus-designed-v1
+          path: candidate
+      - uses: actions/download-artifact@v4
+        with:
+          name: premium-layout-editorial-stage
+          run-id: 42997189529
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: composition
+      - name: Install source-independent browser QA
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: Build the generated React project
+        run: |
+          npm ci --prefix candidate --legacy-peer-deps --ignore-scripts --no-audit --no-fund
+          npm --prefix candidate run build
+      - name: Capture real rendered desktop/mobile pages
+        run: |
+          npm --prefix candidate run dev -- --host 127.0.0.1 --port 3000 --strictPort >/tmp/cactus-premium.log 2>&1 &
+          for i in $(seq 1 45); do curl -sf http://127.0.0.1:3000/ >/dev/null && break; sleep 1; done
+          node src/engine/capture.mjs --url http://127.0.0.1:3000/ --output rendered
+      - name: Measure preservation and layout regressions
+        id: gate
+        continue-on-error: true
+        run: node src/engine/compare.mjs --before composition/baseline-settled/report.json --after rendered/report.json --output structural-gate.json
+      - name: Store actual artifacts and measured result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: premium-cactus-rendered-v1
+          path: |
+            rendered/
+            structural-gate.json
+          retention-days: 14
+          if-no-files-found: warn
+
+  jury-v1:
+    name: Critique screenshot composition, identity and mobile legibility
+    needs: verify-v1
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/download-artifact@v4
+        with:
+          name: premium-layout-editorial-stage
+          run-id: 42997189529
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: composition
+      - uses: actions/download-artifact@v4
+        with:
+          name: premium-cactus-rendered-v1
+          path: first-render
+      - name: Rigorous model-based jury, advisory only
+        env:
+          VULTR_INFERENCE_API_KEY: ${{ secrets.VULTR_INFERENCE_API_KEY }}
+        run: |
+          node src/engine/visual-jury.mjs \
+            --original composition/baseline-settled/desktop.png \
+            --candidate first-render/rendered/desktop.png \
+            --mobile first-render/rendered/mobile.png \
+            --output jury-v1.json
+      - name: Preserve visual evidence and critical findings
+        uses: actions/upload-artifact@v4
+        with:
+          name: premium-cactus-jury-v1
+          path: jury-v1.json
+          retention-days: 14
+
+  refine:
+    name: Automatically revise the same source-grounded site from actual visual findings
+    needs: jury-v1
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: actions/download-artifact@v4
+        with:
+          name: premium-cactus-designed-v1
+          path: designed-v1
+      - uses: actions/download-artifact@v4
+        with:
+          name: premium-cactus-rendered-v1
+          path: first-render
+      - uses: actions/download-artifact@v4
+        with:
+          name: premium-cactus-jury-v1
+          path: jury
+      - name: Install engine for a single bounded correction pass
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Revise only scoped CSS; retain JSX, product facts and behaviors
+        env:
+          VULTR_INFERENCE_API_KEY: ${{ secrets.VULTR_INFERENCE_API_KEY }}
+        run: |
+          node src/engine/generate.mjs --project designed-v1 \
+            --desktop first-render/rendered/desktop.png \
+            --mobile first-render/rendered/mobile.png \
+            --feedback jury/jury-v1.json \
+            --report first-render/rendered/report.json \
+            --output designed-v2
+      - name: Preserve second candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: premium-cactus-designed-v2
+          path: designed-v2/
+          retention-days: 14
+
+  verify-v2:
+    name: Verify final candidate in isolated Chromium, do not auto-publish
+    needs: refine
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: actions/download-artifact@v4
+        with:
+          name: premium-cactus-designed-v2
+          path: candidate
+      - uses: actions/download-artifact@v4
+        with:
+          name: premium-layout-editorial-stage
+          run-id: 42997189529
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: composition
+      - name: Install no-key browser harness
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: Build revised website
+        run: |
+          npm ci --prefix candidate --legacy-peer-deps --ignore-scripts --no-audit --no-fund
+          npm --prefix candidate run build
+      - name: Capture full-page redesign at both viewports
+        run: |
+          npm --prefix candidate run dev -- --host 127.0.0.1 --port 3000 --strictPort >/tmp/cactus-premium-final.log 2>&1 &
+          for i in $(seq 1 45); do curl -sf http://127.0.0.1:3000/ >/dev/null && break; sleep 1; done
+          node src/engine/capture.mjs --url http://127.0.0.1:3000/ --output rendered
+      - name: Measure structural and interaction preservation
+        id: structural
+        continue-on-error: true
+        run: node src/engine/compare.mjs --before composition/baseline-settled/report.json --after rendered/report.json --output final-gate.json
+      - name: Save finished evidence, including rejected results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: premium-cactus-final-evidence
+          path: |
+            rendered/
+            final-gate.json
+          retention-days: 14
+          if-no-files-found: warn

@@ -15,7 +15,12 @@ const SYSTEM=[
   "Avoid unbounded page growth; remain within 115% of original page length at each viewport. Preserve responsive rendering, no overflow.",
   "Return exactly ===DESIGN_DIRECTION===, ===DESIGN_CSS===, ===DESIGN_END=== as standalone delimiter lines. In direction write 2-4 sentences naming real product and clear art direction. In CSS output raw full stylesheet, no markdown fences.",
   "No remote CSS/font/image URLs; no CSS @imports; no :root, html, body globals, position:fixed or selector unscoped from .slp-engine.",
-  "IMPORTANT: do NOT return TSX; the engine will attach CSS safely to the original page. Focus all creative energy on considered composition and CSS craft."
+  "IMPORTANT: do NOT return TSX; the engine will attach CSS safely to the original page. Focus all creative energy on considered composition and CSS craft.",
+  "If the supplied page contains a curated .slp-cmp-hero layout, it is an intentional premium structural system. Do not resize it recklessly, recolor its headline into one flat color, hide its original asset, or override its composition grid.",
+  "Use the authored hero system as the visual standard for the rest of the page: upgrade navigation, feature storytelling, pricing hierarchy, testimonials and footer without fabricating claims.",
+  "No visible text created using CSS pseudo-elements or content property. Never invent popularity ribbons, endorsements or labels.",
+  "The screenshots are sampled after animations settle. Do not replace working illustration assets or degrade their contrast."
+
 ].join("\n");
 
 export function parseDesign(content) {
@@ -55,10 +60,13 @@ export async function generate({project,output,desktop,mobile,report,feedback,mo
     throw Error("Non-style source modification blocked");
   const visual=report?JSON.parse(readFileSync(resolve(report),"utf8")):{};
   const currentStyles=scoped.alreadyScoped?readFileSync(resolve(site.root,dirname(site.entry),CSS_NAME),"utf8"):"";
+  const composedCss=existsSync(resolve(site.root,dirname(site.entry),"sloppertizer.compose.css"))?
+    readFileSync(resolve(site.root,dirname(site.entry),"sloppertizer.compose.css"),"utf8").slice(0,15000):"";
   const message={type:"text",text:JSON.stringify({
     product:site.product,framework:site.framework,entry:site.entry,
     original:site.sources,diagnosis:site.diagnosis,
     existingScopedStyles:currentStyles.slice(0,16000),
+    authoredCompositionStyles:composedCss,
     browserMeasurements:visual,previousCritique:feedback?readFileSync(resolve(feedback),"utf8").slice(0,9000):"",
     objective:"A differentiated product-specific visual system and improved visual hierarchy; NOT a copied brand."
   })};
