@@ -1,0 +1,41 @@
+{
+  "status": "experimental-awaiting-human-review",
+  "source": "WorkFlow AI Pro Pass 2, pinned GitHub Actions candidate",
+  "extractedPrinciples": [
+    "Product demonstration should dominate hero impact",
+    "Readable interface details",
+    "Typography measured at fixed viewport",
+    "No unsupported product claims",
+    "No gradient/glass shortcuts"
+  ],
+  "candidate": "stage-led",
+  "alternate": "product-canvas",
+  "typography": {
+    "family": "system sans",
+    "desktopH1Px": 60,
+    "mobileH1Px": 39,
+    "desktopMaxH1Lines": 4,
+    "mobileMaxH1Lines": 5
+  },
+  "colors": {
+    "paper": "#F5F6F1",
+    "ink": "#172521",
+    "accent": "#4B705E",
+    "stage": "#1A3027"
+  },
+  "maxWidthPx": 1230,
+  "layout": {
+    "desktopViewport": 1440,
+    "mobileViewport": 390,
+    "breakpointPx": 920
+  },
+  "approvalRequired": true,
+  "preserve": [
+    "auth",
+    "responsible AI",
+    "Supabase",
+    "six capability tabs",
+    "FAQ",
+    "every section after #features"
+  ]
+}
