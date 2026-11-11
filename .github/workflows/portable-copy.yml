@@ -1,0 +1,96 @@
+name: Portable engine — safe source-copy refinement
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/portable-copy.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: sloppertizer-cactus-copy
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    name: Find and rewrite only verified placeholder paragraphs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: cactus-candidate-v2
+          run-id: 42990093112
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: cactus-v2
+      - name: Run product-grounded copy repair with Vultr
+        env:
+          VULTR_INFERENCE_API_KEY: ${{ secrets.VULTR_INFERENCE_API_KEY }}
+        run: |
+          test -n "$VULTR_INFERENCE_API_KEY" || (echo "::error::Missing inference secret" && exit 1)
+          node src/engine/copy.mjs --project cactus-v2 --output cactus-copy
+      - name: Export new independent candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: cactus-copy-candidate
+          path: cactus-copy/
+          retention-days: 7
+
+  verify:
+    name: Build and ensure source/copy functionality survives
+    needs: generate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: cactus-copy-candidate
+          path: candidate
+      - uses: actions/download-artifact@v4
+        with:
+          name: cactus-baseline
+          run-id: 42990093112
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: baseline
+      - name: Install browser harness in no-inference-key runner
+        run: |
+          npm install --ignore-scripts --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: Compile independent React app
+        run: |
+          cd candidate
+          npm ci --legacy-peer-deps --ignore-scripts --no-audit --no-fund
+          npm run build
+      - name: Capture actual new screenshots
+        run: |
+          npm --prefix candidate run dev -- --host 127.0.0.1 --port 3000 --strictPort >/tmp/cactus-copy.log 2>&1 &
+          for i in $(seq 1 35); do curl -fsS http://127.0.0.1:3000/ >/dev/null 2>&1 && break; sleep 1; done
+          node src/engine/capture.mjs --url http://127.0.0.1:3000/ --output result
+      - name: Validate links and behavior preservation
+        id: gate
+        continue-on-error: true
+        run: |
+          node src/engine/compare.mjs --before baseline/report.json --after result/report.json --output copy-gate.json
+      - name: Save visual comparison and review evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cactus-copy-evidence
+          path: |
+            result/
+            copy-gate.json
+          retention-days: 7
+          if-no-files-found: warn
