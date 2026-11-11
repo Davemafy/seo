@@ -1,0 +1,104 @@
+name: Pilot 01 - stage-led product demo fidelity
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/demo-fidelity.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  generate:
+    name: Replace only the Stage-led product demonstration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: bounded-hero-candidates
+          run-id: 42973379855
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: source
+      - name: Apply deterministic product demo overhaul
+        run: |
+          node src/demo-fidelity.mjs --project source/stage-led --output detailed-stage
+          node -e 'const x=require("./detailed-stage/demo-fidelity-report.json");if(!x.unchanged)process.exit(1)'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stage-led-detailed-source
+          path: detailed-stage/
+          retention-days: 14
+
+  verify:
+    name: Build and validate the demo in a no-key browser worker
+    needs: generate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: stage-led-detailed-source
+          path: detailed-stage
+      - uses: actions/download-artifact@v4
+        with:
+          name: composition-evidence-stage-led
+          run-id: 42973379855
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: previous
+      - name: Install unprivileged browser harness
+        run: |
+          npm install --ignore-scripts --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: Install app dependencies without credentials
+        run: |
+          cd detailed-stage
+          npm install --legacy-peer-deps --ignore-scripts --no-audit --no-fund
+      - name: Build candidate against dummy, nonfunctional backend
+        env: &demo_backend
+          VITE_SUPABASE_URL: https://example.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sloppertizer-test-only
+          VITE_SUPABASE_ANON_KEY: sloppertizer-test-only
+        run: npm --prefix detailed-stage run build
+      - name: Render exactly the same desktop/mobile viewports as Stage-led
+        env: *demo_backend
+        run: |
+          npm --prefix detailed-stage run dev -- --host 127.0.0.1 --port 3000 --strictPort > /tmp/detailed-demo.log 2>&1 &
+          for i in $(seq 1 35); do curl -sf http://127.0.0.1:3000/ >/dev/null && break; sleep 1; done
+          node src/capture.mjs --url http://127.0.0.1:3000/ --output detailed-shots
+      - name: Verify product demonstration readability and clipping
+        run: node src/verify-demo.mjs http://127.0.0.1:3000/
+      - name: Verify all existing tabs, FAQ and navigation
+        run: node src/interactions.mjs http://127.0.0.1:3000/
+      - name: Reject layout regressions relative to Stage-led
+        id: gate
+        continue-on-error: true
+        run: |
+          node src/visual-quality-gate.mjs --baseline previous/screenshots/report.json --candidate detailed-shots/report.json --url http://127.0.0.1:3000/ --output demo-regression.json
+      - name: Preserve screenshots and measured evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: detailed-stage-evidence
+          path: |
+            detailed-shots/
+            demo-regression.json
+          retention-days: 14
+          if-no-files-found: warn
+      - name: Reject failed geometry gate
+        if: steps.gate.outcome == 'failure'
+        run: |
+          echo "::error::Detailed product demo regresses relative to Stage-led."
+          exit 1
