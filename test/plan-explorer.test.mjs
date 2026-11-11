@@ -25,7 +25,7 @@ test("composition retains checkout links and source plan cards with accessible R
  const a=composePlanExplorer(fixture);
  for(const x of ["/starter","/company","/enterprise",'<SloppertizerPlanExplorer />','import "./sloppertizer.plan-explorer.css";','aria-pressed={active===i}','role="group"','id="slp-source-plan-3" data-slp-selected="false"'])assert(a.source.includes(x),x);
  assert(a.source.includes("slpPlanState(0)"));
- assert(a.source.includes("slpPlanEffect"));
+ assert(a.source.includes("slpPlanEffect(()=>{"));
  assert(a.source.includes("data-slp-selected"));
  assert(!a.source.includes("fake testimonial"));
 });
