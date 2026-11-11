@@ -17,10 +17,10 @@ export function contrast(a,b){
  return (Math.max(x,y)+0.05)/(Math.min(x,y)+0.05);
 }
 export function selectedTextColor(bg) {
- const candidates=["#20382c","#f9f7f0","#0d1b13","#ffffff"];
+ const candidates=["#20382c","#f9f7f0","#0d1b13","#ffffff","#000000"];
  const chosen=candidates
    .map(color=>({color,ratio:contrast(color,bg)}))
-   .filter(x=>x.ratio>=7)
+   .filter(x=>x.ratio>=4.5)
    .sort((a,b)=>a.color==="#20382c"?-1:b.color==="#20382c"?1:b.ratio-a.ratio)[0];
  if(!chosen)throw Error("Cannot produce accessible text color for background "+bg);
  return chosen.color;

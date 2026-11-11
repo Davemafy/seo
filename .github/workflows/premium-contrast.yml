@@ -4,6 +4,8 @@ on:
     branches: [main]
     paths:
       - .github/workflows/premium-contrast.yml
+      - src/engine/repair-from-axe.mjs
+      - test/repair-from-axe.test.mjs
   workflow_dispatch:
 permissions:
   contents: read
