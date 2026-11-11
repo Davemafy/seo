@@ -1,9 +1,9 @@
-import { chromium } from "playwright";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { resolve, join } from "node:path";
 const sizes={desktop:{width:1440,height:900},mobile:{width:390,height:844}};
 
 export async function capture(url,output) {
+  const { chromium } = await import("playwright");
   const browser=await chromium.launch();
   const result={};mkdirSync(output,{recursive:true});
   try{
