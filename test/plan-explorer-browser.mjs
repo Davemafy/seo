@@ -29,6 +29,9 @@ try {
       const link=ui.getByRole("link",{name:new RegExp("See full "+item.label+" details")});
       assert.equal(await link.getAttribute("href"),"#"+item.anchor);
       assert.equal(await page.locator("#"+item.anchor).count(),1);
+      const card=page.locator("#"+item.anchor);
+      const border=await card.evaluate(el=>getComputedStyle(el).borderTopColor);
+      assert.equal(border,"rgb(171, 107, 73)",view+": selected source card matches active plan");
     }
     const last=selector.getByRole("button",{name:"Enterprise"});
     await last.focus();
@@ -40,6 +43,7 @@ try {
       broken:[...document.images].filter(i=>!i.complete||i.naturalWidth===0).length
     }));
     assert.equal(data.overflow,false,view+": no overflow");
+    if(view==="mobile")assert.equal(await page.locator(".slp-cmp-feature-strip").isVisible(),false,view+": duplicate feature strip hidden");
     assert.equal(data.broken,0,view+": images work");
     assert.deepEqual(errors,[],view+": no runtime errors");
     console.log(view,"passed",data);

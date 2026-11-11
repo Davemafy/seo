@@ -137,3 +137,42 @@
 @media(prefers-reduced-motion:reduce){
  .slp-engine .slp-plan-explorer-tab{transition:none}
 }
+
+/* The selected comparison tab and its existing source card form one decision. */
+.slp-engine .slp-exp-pricing:has(.slp-plan-explorer) .slp-exp-plan{
+  background:#fbf9f2!important;
+  border:1px solid #d2dbd0!important;
+  padding:26px 24px!important;
+}
+.slp-engine .slp-exp-pricing:has(.slp-plan-explorer) .slp-exp-plan > a{
+  background:#204c38!important;
+  border-color:#204c38!important;
+}
+.slp-engine .slp-exp-pricing:has(.slp-plan-explorer-tab:nth-child(1)[aria-pressed="true"]) .slp-exp-plan-1,
+.slp-engine .slp-exp-pricing:has(.slp-plan-explorer-tab:nth-child(2)[aria-pressed="true"]) .slp-exp-plan-2,
+.slp-engine .slp-exp-pricing:has(.slp-plan-explorer-tab:nth-child(3)[aria-pressed="true"]) .slp-exp-plan-3,
+.slp-engine .slp-exp-pricing:has(.slp-plan-explorer-tab:nth-child(4)[aria-pressed="true"]) .slp-exp-plan-4,
+.slp-engine .slp-exp-pricing:has(.slp-plan-explorer-tab:nth-child(5)[aria-pressed="true"]) .slp-exp-plan-5{
+  background:#fff8e9!important;
+  border:2px solid #ab6b49!important;
+  padding:25px 23px!important;
+}
+.slp-engine .slp-exp-pricing:has(.slp-plan-explorer-tab:nth-child(1)[aria-pressed="true"]) .slp-exp-plan-1 > a,
+.slp-engine .slp-exp-pricing:has(.slp-plan-explorer-tab:nth-child(2)[aria-pressed="true"]) .slp-exp-plan-2 > a,
+.slp-engine .slp-exp-pricing:has(.slp-plan-explorer-tab:nth-child(3)[aria-pressed="true"]) .slp-exp-plan-3 > a,
+.slp-engine .slp-exp-pricing:has(.slp-plan-explorer-tab:nth-child(4)[aria-pressed="true"]) .slp-exp-plan-4 > a,
+.slp-engine .slp-exp-pricing:has(.slp-plan-explorer-tab:nth-child(5)[aria-pressed="true"]) .slp-exp-plan-5 > a{
+  background:#985332!important;
+  border-color:#985332!important;
+}
+.slp-engine .slp-cmp-art-caption span:last-child{display:none}
+@media(max-width:680px){
+  /* The same feature names and descriptions are directly beneath the hero. */
+  .slp-engine .slp-cmp-feature-strip{display:none!important}
+  .slp-engine .slp-exp-pricing:has(.slp-plan-explorer) .slp-exp-plan{padding:26px 23px!important}
+  .slp-engine .slp-exp-pricing:has(.slp-plan-explorer-tab[aria-pressed="true"]) .slp-exp-plan-1,
+  .slp-engine .slp-exp-pricing:has(.slp-plan-explorer-tab[aria-pressed="true"]) .slp-exp-plan-2,
+  .slp-engine .slp-exp-pricing:has(.slp-plan-explorer-tab[aria-pressed="true"]) .slp-exp-plan-3,
+  .slp-engine .slp-exp-pricing:has(.slp-plan-explorer-tab[aria-pressed="true"]) .slp-exp-plan-4,
+  .slp-engine .slp-exp-pricing:has(.slp-plan-explorer-tab[aria-pressed="true"]) .slp-exp-plan-5{padding:25px 22px!important}
+}
