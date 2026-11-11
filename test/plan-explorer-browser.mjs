@@ -58,7 +58,11 @@ try {
         }));
         console.log(view+": selected-card CSS diagnosis",JSON.stringify({...debug,selectedId:item.anchor,ruleDetails}));
       }
-      assert.equal(border,"rgb(171, 107, 73)",view+": selected source card outline matches active plan");
+      assert.equal(await card.isVisible(),true,view+": selected card is visible");
+      const visibleCards=await page.locator(".slp-exp-plan:visible").count();
+      assert.equal(visibleCards,1,view+": exactly one source plan displayed");
+      const otherCards=await page.locator('.slp-exp-plan[data-slp-selected="false"]:visible').count();
+      assert.equal(otherCards,0,view+": other plans hidden without deleting their facts or links");
     }
     const last=selector.getByRole("button",{name:"Enterprise"});
     await last.focus();
