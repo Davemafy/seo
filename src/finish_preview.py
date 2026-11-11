@@ -367,23 +367,27 @@ STYLE = r"""
 REPLACEMENTS = [
     ("Six tools, one workspace —", "Write it. Plan it."),
     ("not six more tabs.", "Follow through."),
-    (
-        "Each capability takes a specific kind of repetitive work off your plate, without asking you to learn a new interface for every task. Select one to see it work.",
-        "Email drafts, meeting summaries, task plans, research, chat and reusable prompts. Choose a tool below to explore a sample."
-    ),
-    ("Responsible AI", "AI prepares."),
-    ("is the product.", "You decide."),
-    (
-        "WorkFlow AI Pro is built on a simple principle: the AI should reduce your workload without compromising your judgment. Your data stays scoped to your account, is never used to train public models, and every output is designed to be reviewed before it ships. We use Google Gemini 3 Flash by default for low-latency, high-quality results, with smart fallbacks for complex tasks.",
-        "Automation should make the next decision easier, not make it for you. Summaries, drafts and plans are starting points. Check the details, make your edits, and decide what moves forward. For privacy and model-processing information, read the product policy."
-    ),
-    ("Start working", "Make room for"),
-    ("on the work that matters.", "the next big thing."),
-    (
-        "Free for individuals. No contracts, no credit card. Your account stays yours.",
-        "A meeting to summarize? A follow-up to draft? Start with the tool that fits what is next."
-    ),
 ]
+
+SECTION_TEXT = {
+    "slp-section-desc": "Email drafts, meeting summaries, task plans, research, chat and reusable prompts. Choose a tool below to explore a sample.",
+    "slp-approach-body": "Automation should make the next decision easier, not make it for you. Summaries, drafts and plans are starting points. Check the details, make your edits, and decide what moves forward. For privacy and model-processing information, read the product policy.",
+    "slp-cta-desc": "A meeting to summarize? A follow-up to draft? Start with the tool that fits what is next."
+}
+
+SECTION_HEADINGS = {
+    "slp-approach-title": 'AI prepares.<br /><em className="slp-italic">You decide.</em>',
+    "slp-cta-title": 'Make room for<br /><em className="slp-italic">the next big thing.</em>'
+}
+
+def replace_tag_contents(text, tag, class_name, new):
+    import re
+    pattern = re.compile(r'(<'+tag+r'\s+className="'+re.escape(class_name)+r'"[^>]*>)[\s\S]*?(</'+tag+r'>)')
+    updated, count = pattern.subn(lambda match: match.group(1)+new+match.group(2), text)
+    if count != 1:
+        raise RuntimeError(f"Expected one JSX {tag}.{class_name}, got {count}")
+    return updated
+
 
 def sha(text):
     return hashlib.sha256(text.encode()).hexdigest()
@@ -397,6 +401,10 @@ def apply_finish(text):
         if count != 1:
             raise RuntimeError(f"Expected one copy anchor ({count}): {old[:75]!r}")
         text = text.replace(old, new, 1)
+    for cls, copy in SECTION_TEXT.items():
+        text = replace_tag_contents(text, "p", cls, copy)
+    for cls, heading in SECTION_HEADINGS.items():
+        text = replace_tag_contents(text, "h2", cls, heading)
     before = text.index("function Capabilities()")
     after = text.index("function Landing()", before)
     # Ensure the interaction definitions, routes and FAQ semantics were not changed by this pass.
@@ -410,7 +418,7 @@ def apply_finish(text):
     return text, {
         "previous_hash": sha(original),
         "new_hash": sha(text),
-        "copy_replacements": len(REPLACEMENTS),
+        "copy_replacements": len(REPLACEMENTS) + len(SECTION_TEXT) + len(SECTION_HEADINGS),
         "scoped_css_only": True
     }
 
