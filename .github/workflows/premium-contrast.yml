@@ -1,0 +1,142 @@
+name: Premium engine - measured contrast repair
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/premium-contrast.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: premium-contrast-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    name: Measure true WCAG contrast on the stronger first redesign
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/download-artifact@v4
+        with:
+          name: premium-cactus-designed-v1
+          run-id: 42997811937
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: candidate
+      - name: Install uncredentialed browser tools
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: Build the unchanged first-pass React output
+        run: |
+          npm ci --prefix candidate --legacy-peer-deps --ignore-scripts --no-audit --no-fund
+          npm --prefix candidate run build
+      - name: Capture desktop and mobile plus WCAG AA evidence
+        run: |
+          npm --prefix candidate run dev -- --host 127.0.0.1 --port 3000 --strictPort >/tmp/contrast-before.log 2>&1 &
+          for i in $(seq 1 45); do curl -sf http://127.0.0.1:3000/ >/dev/null && break; sleep 1; done
+          node src/engine/capture.mjs --url http://127.0.0.1:3000/ --output before
+          node -e 'const r=require("./before/report.json");console.log("Measured contrast problems:",JSON.stringify({desktop:r.desktop.accessibility,mobile:r.mobile.accessibility}).slice(0,4500))'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: premium-contrast-before
+          path: before/
+          retention-days: 14
+
+  repair:
+    name: Generate isolated COLOR ONLY patch from measured contrast defects
+    needs: audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/download-artifact@v4
+        with:
+          name: premium-cactus-designed-v1
+          run-id: 42997811937
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: candidate
+      - uses: actions/download-artifact@v4
+        with:
+          name: premium-contrast-before
+          path: before
+      - name: Install inference client without executing site dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Generate color-only fix; no TSX rewrite or broad restyling
+        env:
+          VULTR_INFERENCE_API_KEY: ${{ secrets.VULTR_INFERENCE_API_KEY }}
+        run: |
+          test -n "$VULTR_INFERENCE_API_KEY" || (echo "::error::Missing Vultr inference secret" && exit 1)
+          node src/engine/contrast-repair.mjs --project candidate --report before/report.json --desktop before/desktop.png --mobile before/mobile.png --output repaired
+      - uses: actions/upload-artifact@v4
+        with:
+          name: premium-contrast-repaired-source
+          path: repaired/
+          retention-days: 14
+
+  verify:
+    name: Re-render and reject inaccessible or regressed repair
+    needs: repair
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/download-artifact@v4
+        with:
+          name: premium-contrast-repaired-source
+          path: repaired
+      - uses: actions/download-artifact@v4
+        with:
+          name: premium-contrast-before
+          path: before
+      - name: Install uncredentialed build and browser tools
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: Build repaired app without inference key
+        run: |
+          npm ci --prefix repaired --legacy-peer-deps --ignore-scripts --no-audit --no-fund
+          npm --prefix repaired run build
+      - name: Capture repaired desktop/mobile contrast and layout
+        run: |
+          npm --prefix repaired run dev -- --host 127.0.0.1 --port 3000 --strictPort >/tmp/contrast-after.log 2>&1 &
+          for i in $(seq 1 45); do curl -sf http://127.0.0.1:3000/ >/dev/null && break; sleep 1; done
+          node src/engine/capture.mjs --url http://127.0.0.1:3000/ --output after
+      - name: Check visual integrity, accessibility and page-height regression
+        id: selection
+        continue-on-error: true
+        run: node src/engine/selection.mjs --before before/report.json --after after/report.json --output decision.json
+      - name: Retain real comparison even on rejection
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: premium-contrast-evidence
+          path: |
+            after/
+            decision.json
+          retention-days: 14
+          if-no-files-found: warn
+      - name: Reject regressions; keep preceding accepted composition
+        if: steps.selection.outcome == 'failure'
+        run: |
+          echo "::error::Contrast repair failed verified acceptance gate."
+          exit 1
