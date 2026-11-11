@@ -98,14 +98,32 @@ jobs:
           node test/story-browser.mjs http://127.0.0.1:3202/ ${{ matrix.cards }}
           node src/engine/capture.mjs --url http://127.0.0.1:3202/ --output evidence/candidate || echo "::warning::Candidate has quality defects; its report is retained."
           test -f evidence/candidate/report.json
+      - name: Repair only browser-measured color contrast defects
+        run: |
+          node src/engine/story-contrast.mjs --project candidate --report evidence/candidate/report.json --output repaired
+          cat repaired/sloppertizer-story-contrast-receipt.json
+      - name: Rebuild repaired source and rerun interaction and accessibility checks
+        env:
+          VITE_SUPABASE_URL: https://example.invalid
+          VITE_SUPABASE_PUBLISHABLE_KEY: demo-publishable-only
+          SUPABASE_URL: https://example.invalid
+          SUPABASE_PUBLISHABLE_KEY: demo-publishable-only
+        run: |
+          npm ci --prefix repaired --legacy-peer-deps --ignore-scripts --no-audit --no-fund
+          npm --prefix repaired run build
+          npm --prefix repaired run dev -- --host 127.0.0.1 --port 3203 --strictPort >/tmp/story-repaired.log 2>&1 &
+          for i in $(seq 1 50); do curl -fsS http://127.0.0.1:3203/ >/dev/null 2>&1 && break; sleep 1; done
+          node test/story-browser.mjs http://127.0.0.1:3203/ ${{ matrix.cards }}
+          node src/engine/capture.mjs --url http://127.0.0.1:3203/ --output evidence/final || echo "::warning::Original site quality defects remain."
+          test -f evidence/final/report.json
       - name: Verify no NEW broken images, missing links, page errors or contrast issues
         run: |
-          node src/engine/story-compatibility.mjs --before evidence/baseline/report.json --after evidence/candidate/report.json --output evidence/compatibility.json
+          node src/engine/story-compatibility.mjs --before evidence/baseline/report.json --after evidence/final/report.json --output evidence/compatibility.json
       - name: Apply strict premium quality gate independently
         id: premium
         continue-on-error: true
         run: |
-          node src/engine/selection.mjs --before evidence/baseline/report.json --after evidence/candidate/report.json --output evidence/gate.json
+          node src/engine/selection.mjs --before evidence/baseline/report.json --after evidence/final/report.json --output evidence/gate.json
       - name: Preserve actual rendered evidence even for rejected candidates
         if: always()
         uses: actions/upload-artifact@v4
@@ -113,6 +131,7 @@ jobs:
           name: story-${{ matrix.site }}-${{ matrix.layout }}
           path: |
             candidate/sloppertizer-story-receipt.json
+            repaired/sloppertizer-story-contrast-receipt.json
             evidence/
           retention-days: 14
           if-no-files-found: warn
