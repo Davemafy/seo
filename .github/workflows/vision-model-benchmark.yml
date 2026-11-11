@@ -1,9 +1,5 @@
 name: Sloppertizer — vision model grounding benchmark
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/vision-model-benchmark.yml
   workflow_dispatch:
 permissions:
   contents: read

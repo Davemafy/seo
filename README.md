@@ -18,3 +18,9 @@ The original manually guided WorkFlow AI Pro experiment is separate from the por
 Read [the exact independent results and failures](docs/portable-engine-results.md). Current output still needs human visual review, and the portable engine has not demonstrated fully autonomous premium component-level redesign.
 
 Run `npm test` to execute guardrail tests. Configure `VULTR_INFERENCE_API_KEY` only as an Actions secret; never commit or paste it. No generated candidate is auto-deployed.
+
+## Model roles (benchmarked 11 November 2026)
+
+The **design generator remains GLM-5.2**. The independent default screenshot jury is **Muse Glimmer 30B**. Both roles are overrideable with `SLOPPERTIZER_DESIGN_MODEL` and `SLOPPERTIZER_VISION_MODEL`. No model candidate from the Cactus A/B test met the full premium output bar; do not auto-publish or claim a visual win based only on the model name.
+
+See [controlled model comparison](docs/model-benchmark-2026-11-11.md). Cost-bearing model benchmark workflows are manual by default to avoid unexpected inference charges.

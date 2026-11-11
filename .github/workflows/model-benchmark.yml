@@ -1,14 +1,5 @@
 name: Sloppertizer — independently calibrated model benchmark
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/model-benchmark.yml
-      - src/engine/model-catalog.mjs
-      - src/engine/vision-calibration.mjs
-      - src/engine/model-benchmark.mjs
-      - src/engine/generate.mjs
-      - src/engine/visual-jury.mjs
   workflow_dispatch:
 permissions:
   contents: read

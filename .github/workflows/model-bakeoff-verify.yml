@@ -1,9 +1,5 @@
 name: Sloppertizer — independent coding model bakeoff (reused inference)
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/model-bakeoff-verify.yml
   workflow_dispatch:
 permissions:
   contents: read
