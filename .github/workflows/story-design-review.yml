@@ -1,0 +1,59 @@
+name: Sloppertizer — independent React composition design review
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/story-design-review.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: sloppertizer-story-independent-critique
+  cancel-in-progress: false
+jobs:
+  critique:
+    name: Judge both source-preserving sites using real desktop/mobile screenshots
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        site: [cactus, workflow]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/download-artifact@v4
+        with:
+          name: story-${{ matrix.site }}-editorial-rail
+          run-id: 43061000847
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: source-evidence
+      - name: Install vision review client only; do not execute external source
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Independent Muse screenshot review with no auto-promotion
+        env:
+          VULTR_INFERENCE_API_KEY: ${{ secrets.VULTR_INFERENCE_API_KEY }}
+          SLOPPERTIZER_VISION_MODEL: muse-glimmer-30b
+        run: |
+          test -n "$VULTR_INFERENCE_API_KEY" || (echo "::error::Missing Vultr secret" && exit 1)
+          mkdir -p review
+          node src/engine/visual-jury.mjs \
+            --original source-evidence/evidence/baseline/desktop.png \
+            --candidate source-evidence/evidence/final/desktop.png \
+            --mobile source-evidence/evidence/final/mobile.png \
+            --output review/${{ matrix.site }}-design.json
+      - name: Save actual scores and issues, including rejected output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: story-visual-review-${{ matrix.site }}
+          path: review/
+          retention-days: 14
+          if-no-files-found: warn
