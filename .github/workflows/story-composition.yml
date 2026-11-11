@@ -4,6 +4,12 @@ on:
     branches: [main]
     paths:
       - .github/workflows/story-composition.yml
+      - src/engine/story.mjs
+      - src/engine/story.css
+      - test/story.test.mjs
+      - test/story-browser.mjs
+      - src/engine/story-contrast.mjs
+      - src/engine/story-compatibility.mjs
   workflow_dispatch:
 permissions:
   contents: read
