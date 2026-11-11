@@ -1,162 +1,285 @@
 /*
- * Compositional layouts for a source-preserving React feature story.
- * This stylesheet never supplies product copy, invented badges or claims.
- * CSS targets only the two original subtrees inside our new wrappers.
+ * Source-conditioned feature storytelling.
+ * Component trees, feature facts, handlers and icons stay original.
+ * No gradients, glass, invented copy, decorative badges or global overrides.
  */
 .slp-story {
-  --slp-story-ink: #20382d;
-  --slp-story-muted: #55695e;
-  --slp-story-surface: #f8f6f0;
-  --slp-story-paper: #ffffff;
-  --slp-story-rule: #d9dfd8;
+  --slp-ink: inherit;
+  --slp-muted: inherit;
+  --slp-line: transparent;
+  --slp-panel: transparent;
+  --slp-accent: currentColor;
   display: grid;
-  grid-template-columns: minmax(0, .78fr) minmax(0, 1.55fr);
-  column-gap: clamp(32px, 5vw, 86px);
-  align-items: start;
-  max-width: 1260px;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  gap: clamp(22px, 3.5vw, 46px);
   margin: 0 auto;
-  padding: clamp(28px, 4.5vw, 72px) clamp(20px, 4vw, 56px);
-  background: var(--slp-story-paper);
-  color: var(--slp-story-ink);
+  padding: 0;
+  color: var(--slp-ink);
+  background: transparent;
+  align-items: start;
 }
-.slp-story * { box-sizing: border-box; }
-.slp-story-intro { min-width: 0; position: relative; }
-.slp-story-intro > * {
-  max-width: 100% !important;
-  text-align: left !important;
+.slp-story *, .slp-story *::before, .slp-story *::after { box-sizing: border-box; }
+.slp-story-intro, .slp-story-content, .slp-story-intro > div, .slp-story-content > div {
+  min-width: 0;
+  max-width: none !important;
+  width: 100%;
+  margin: 0 !important;
 }
-.slp-story-intro h2 {
-  font: 730 clamp(36px, 4.2vw, 64px)/1.06 ui-sans-serif, system-ui, sans-serif !important;
-  letter-spacing: -.055em !important;
-  text-wrap: balance;
-  margin: 8px 0 20px !important;
-  color: var(--slp-story-ink) !important;
-}
-.slp-story-intro p {
-  text-align: left !important;
-  max-width: 40ch !important;
-  font-size: clamp(14px, 1.15vw, 17px) !important;
-  line-height: 1.6 !important;
-  margin: 0 0 15px !important;
-  color: var(--slp-story-muted) !important;
-  letter-spacing: -.01em;
-}
-.slp-story-intro p:first-child {
-  color: #9d603d !important;
-  font-size: 10px !important;
-  font-weight: 800 !important;
-  text-transform: uppercase;
-  letter-spacing: .16em;
-}
-.slp-story-content { min-width: 0; }
-.slp-story-content > *,
-.slp-story-content > * > * { max-width: none !important; width: 100%; margin: 0 !important; padding: 0 !important; }
-.slp-story-content > .grid,
-.slp-story-content > div > .grid {
+.slp-story-intro > * { text-align: left !important; }
+.slp-story-content { width: 100%; }
+.slp-story-content > div { padding: 0 !important; }
+.slp-story-content .grid {
   display: grid !important;
-  grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
-  grid-auto-rows: minmax(145px, auto);
+  width: 100% !important;
+  max-width: none !important;
+  gap: clamp(12px, 1.45vw, 20px) !important;
   align-items: stretch !important;
-  gap: 13px !important;
+  margin: 0 !important;
 }
-.slp-story-content > .grid > *,
-.slp-story-content > div > .grid > * {
-  grid-column: span 3;
+.slp-story-content .grid > * {
   min-width: 0 !important;
+  max-width: none !important;
   width: 100% !important;
   height: 100%;
   margin: 0 !important;
-  padding: 23px 23px 25px !important;
-  border: 1px solid var(--slp-story-rule) !important;
-  border-radius: 2px !important;
-  background: var(--slp-story-surface) !important;
+  transform: none;
   background-image: none !important;
   box-shadow: none !important;
-  color: var(--slp-story-ink) !important;
-  transform: none !important;
 }
-.slp-story-content > .grid > :first-child,
-.slp-story-content > div > .grid > :first-child {
-  grid-column: span 6;
-  min-height: 210px;
-  background: #edf0e7 !important;
-  border-color: #b7c9b7 !important;
-  padding: 30px 32px !important;
-}
-.slp-story-content > .grid > :last-child:nth-child(even),
-.slp-story-content > div > .grid > :last-child:nth-child(even) {
-  grid-column: span 6;
-}
-.slp-story-content h3, .slp-story-content :is(.font-semibold, .font-bold) {
-  color: var(--slp-story-ink) !important;
-}
-.slp-story-content h3 {
-  font: 730 clamp(17px, 1.5vw, 23px)/1.19 ui-sans-serif,system-ui,sans-serif !important;
-  letter-spacing: -.033em !important;
-}
-.slp-story-content p { line-height: 1.55 !important; }
-.slp-story-content .text-gray-900 { color: var(--slp-story-ink) !important; }
-.slp-story-content .text-gray-600, .slp-story-content .text-muted-foreground {
-  color: var(--slp-story-muted) !important;
-}
-.slp-story--product-casebook { grid-template-columns: minmax(0,1fr); gap: 34px; }
-.slp-story--product-casebook .slp-story-intro { max-width: 850px; }
-.slp-story--product-casebook .slp-story-intro h2 { max-width: 900px; }
-.slp-story--product-casebook .slp-story-content > .grid,
-.slp-story--product-casebook .slp-story-content > div > .grid { grid-template-columns: repeat(6,minmax(0,1fr)) !important; gap: 15px !important; }
-.slp-story--feature-mosaic { grid-template-columns: minmax(0,1fr); gap: 31px; }
-.slp-story--feature-mosaic .slp-story-intro {
-  display: grid;
-  grid-template-columns: 1.25fr .75fr;
-  gap: 18px 45px;
-  align-items: end;
-}
-.slp-story--feature-mosaic .slp-story-intro > * { display: contents; }
-.slp-story--feature-mosaic .slp-story-intro h2 { grid-column: 1; margin: 0 !important; }
-.slp-story--feature-mosaic .slp-story-intro p { grid-column: 2; margin: 0 !important; }
-.slp-story--feature-mosaic .slp-story-intro p:first-child { grid-column: 1/-1; }
-.slp-story--feature-mosaic .slp-story-content > .grid > :first-child,
-.slp-story--feature-mosaic .slp-story-content > div > .grid > :first-child { grid-column: span 3; min-height: 200px; }
-@media (max-width: 980px) {
-  .slp-story { grid-template-columns: minmax(0,1fr); gap: 24px; padding: 45px 25px; }
-  .slp-story--feature-mosaic .slp-story-intro { display:block; }
-  .slp-story--feature-mosaic .slp-story-intro > * { display:block; }
-  .slp-story--feature-mosaic .slp-story-intro p { margin: 0 0 12px !important; }
-  .slp-story-intro h2 { font-size: clamp(35px, 5.5vw, 55px) !important; }
-}
-@media (max-width: 620px) {
-  .slp-story { padding: 28px 17px 30px; gap: 21px; }
-  .slp-story-intro h2 { font-size: clamp(31px, 9vw, 42px) !important; margin: 7px 0 13px !important; }
-  .slp-story-intro p { font-size: 14px !important; }
-  .slp-story-content > .grid,
-  .slp-story-content > div > .grid { grid-template-columns: minmax(0,1fr) !important; gap: 11px !important; }
-  .slp-story-content > .grid > *,
-  .slp-story-content > div > .grid > *,
-  .slp-story-content > .grid > :first-child,
-  .slp-story-content > div > .grid > :first-child,
-  .slp-story-content > .grid > :last-child:nth-child(even),
-  .slp-story-content > div > .grid > :last-child:nth-child(even) {
-    grid-column: 1 !important;
-    min-height: 0;
-    padding: 22px 21px !important;
-  }
-  .slp-story-content h3 { font-size: 18px !important; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .slp-story-content > .grid > *,
-  .slp-story-content > div > .grid > * { transition: none !important; }
+.slp-story-content h3 { text-wrap: pretty; }
+.slp-story-content p { text-wrap: pretty; }
+.slp-story-content a:focus-visible,
+.slp-story-content button:focus-visible {
+  outline: 2px solid var(--slp-accent);
+  outline-offset: 3px;
 }
 
-/* Rail composition preserves a compact two-column rhythm on wide screens.
-   It avoids creating unnecessary full-width first/last panels. */
-@media (min-width:621px) {
- .slp-story--editorial-rail .slp-story-content > .grid > :first-child,
- .slp-story--editorial-rail .slp-story-content > div > .grid > :first-child,
- .slp-story--editorial-rail .slp-story-content > .grid > :last-child:nth-child(even),
- .slp-story--editorial-rail .slp-story-content > div > .grid > :last-child:nth-child(even) {
-   grid-column: span 3 !important;
-   min-height:145px !important;
-   padding:23px 23px 25px !important;
- }
+/* LIGHT: warm neutral + existing source amber feature illustrations. */
+.slp-story--day {
+  --slp-ink: #1e2932;
+  --slp-muted: #54616a;
+  --slp-line: #e5e7e5;
+  --slp-panel: #fbfaf7;
+  --slp-accent: #b8690b;
+  grid-template-columns: minmax(245px, .75fr) minmax(0, 1.78fr);
+  column-gap: clamp(32px, 5.4vw, 85px);
+}
+.slp-story--day .slp-story-intro {
+  position: relative;
+  padding-top: 5px;
+}
+.slp-story--day.slp-story--eyebrow .slp-story-intro h2 {
+  display: block !important;
+  margin: 0 0 22px !important;
+  color: var(--slp-accent) !important;
+  font: 750 11px/1.25 ui-sans-serif, system-ui, sans-serif !important;
+  letter-spacing: .16em !important;
+  text-transform: uppercase !important;
+  text-align: left !important;
+}
+.slp-story--day.slp-story--eyebrow .slp-story-intro p:nth-of-type(1) {
+  margin: 0 0 23px !important;
+  max-width: 15ch !important;
+  color: var(--slp-ink) !important;
+  font: 730 clamp(33px, 3.05vw, 46px)/1.11 ui-sans-serif, system-ui, sans-serif !important;
+  letter-spacing: -.052em !important;
+  text-align: left !important;
+  text-wrap: balance;
+}
+.slp-story--day.slp-story--eyebrow .slp-story-intro p:nth-of-type(n+2) {
+  max-width: 43ch !important;
+  margin: 0 !important;
+  color: var(--slp-muted) !important;
+  font: 400 clamp(14px, 1.1vw, 16px)/1.7 ui-sans-serif, system-ui, sans-serif !important;
+  letter-spacing: -.009em;
+  text-align: left !important;
+}
+/* Keep content authoring neutral: copy claims in the original source remain
+   visible, even when they are placeholder text requiring a separate fix. */
+.slp-story--day .slp-story-content .grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  grid-auto-rows: minmax(185px, auto);
+}
+.slp-story--day .slp-story-content .grid > * {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  gap: 17px !important;
+  padding: clamp(23px, 2vw, 30px) !important;
+  border: 1px solid var(--slp-line) !important;
+  border-radius: 5px !important;
+  background: var(--slp-panel) !important;
+  color: var(--slp-ink) !important;
+}
+.slp-story--day .slp-story-content .grid > * > div:first-child {
+  margin: 0 !important;
+  flex: 0 0 auto;
+}
+/* The source Feature component uses paragraphs as feature titles, not h3s. */
+.slp-story--day .slp-story-content .grid > * p.font-semibold {
+  margin: 0 !important;
+  color: var(--slp-ink) !important;
+  font: 740 clamp(16px, 1.36vw, 20px)/1.29 ui-sans-serif, system-ui, sans-serif !important;
+  letter-spacing: -.028em !important;
+}
+.slp-story--day .slp-story-content .grid > * p:not(.font-semibold) {
+  margin-top: 9px !important;
+  color: var(--slp-muted) !important;
+  font: 430 clamp(13px, 1.03vw, 15px)/1.52 ui-sans-serif, system-ui, sans-serif !important;
+}
+.slp-story--day .slp-story-content .grid > * svg { flex: none; }
+.slp-story--day .slp-story-content .grid > *:hover {
+  border-color: #d4cabd !important;
+  background: #fffdf9 !important;
+}
+.slp-story--day .slp-story-content .grid > *:hover,
+.slp-story--day .slp-story-content .grid > *:focus-within {
+  transition: border-color .15s ease, background-color .15s ease;
+}
+
+/* DARK: inherit the site's established ink/purple/cyan palette. */
+.slp-story--night {
+  --slp-ink: #f3f5fd;
+  --slp-muted: #acb8cd;
+  --slp-line: #28364e;
+  --slp-panel: #111c30;
+  --slp-accent: #a996ff;
+  grid-template-columns: minmax(0, 1fr);
+  row-gap: clamp(27px, 3vw, 43px);
+}
+.slp-story--night .slp-story-intro > * { text-align: left !important; }
+.slp-story--night .slp-story-intro p:first-of-type {
+  margin: 0 0 14px !important;
+  text-align: left !important;
+  color: #b5a8fa !important;
+  font: 750 11px/1.35 ui-sans-serif, system-ui, sans-serif !important;
+  letter-spacing: .16em !important;
+  text-transform: uppercase !important;
+}
+.slp-story--night .slp-story-intro h2 {
+  max-width: 23ch;
+  margin: 0 !important;
+  text-align: left !important;
+  color: var(--slp-ink) !important;
+  font: 735 clamp(34px, 3.8vw, 53px)/1.12 ui-sans-serif, system-ui, sans-serif !important;
+  letter-spacing: -.046em !important;
+  text-wrap: balance;
+}
+.slp-story--night .slp-story-intro p:not(:first-of-type) {
+  margin: 14px 0 0 !important;
+  max-width: 46ch;
+  text-align: left !important;
+  color: var(--slp-muted) !important;
+  font: 420 clamp(14px, 1.18vw, 16px)/1.6 ui-sans-serif, system-ui, sans-serif !important;
+}
+.slp-story--night .slp-story-content .grid {
+  grid-template-columns: repeat(3, minmax(0,1fr)) !important;
+  grid-auto-rows: minmax(205px, auto) !important;
+}
+.slp-story--night .slp-story-content .grid > * {
+  padding: clamp(23px, 2.2vw, 30px) !important;
+  border: 1px solid var(--slp-line) !important;
+  border-radius: 11px !important;
+  background: var(--slp-panel) !important;
+  color: var(--slp-ink) !important;
+}
+.slp-story--night .slp-story-content .grid > *:hover {
+  border-color: #54658b !important;
+  background: #15223a !important;
+}
+.slp-story--night .slp-story-content .grid > * h3 {
+  margin-top: 19px !important;
+  color: var(--slp-ink) !important;
+  font: 700 clamp(17px, 1.42vw, 20px)/1.3 ui-sans-serif, system-ui, sans-serif !important;
+  letter-spacing: -.028em !important;
+}
+.slp-story--night .slp-story-content .grid > * p {
+  margin-top: 8px !important;
+  color: var(--slp-muted) !important;
+  font: 420 clamp(13px, 1.04vw, 15px)/1.58 ui-sans-serif, system-ui, sans-serif !important;
+  letter-spacing: -.005em !important;
+}
+.slp-story--night .slp-story-content .grid > * .bg-gradient-primary {
+  /* Preserve the existing source's brand mark gradient, not a new one. */
+  background-image: linear-gradient(125deg,#9481f6,#30bce7) !important;
+}
+
+/* Unknown brand: do not force an unrelated palette. */
+.slp-story--inherit {
+  --slp-ink: inherit;
+  --slp-muted: inherit;
+  --slp-line: currentColor;
+  --slp-panel: transparent;
+  display: block;
+}
+.slp-story--inherit .slp-story-intro { margin-bottom: 32px !important; }
+.slp-story--inherit .slp-story-content .grid {
+  grid-template-columns: repeat(3,minmax(0,1fr)) !important;
+}
+
+/* Source-aligned alternatives. */
+.slp-story--product-casebook.slp-story--day,
+.slp-story--feature-mosaic.slp-story--day {
+  grid-template-columns: minmax(0,1fr);
+  row-gap: 32px;
+}
+.slp-story--product-casebook.slp-story--day .slp-story-intro,
+.slp-story--feature-mosaic.slp-story--day .slp-story-intro {
+  max-width: 740px !important;
+}
+.slp-story--product-casebook.slp-story--night,
+.slp-story--feature-mosaic.slp-story--night {
+  grid-template-columns: minmax(0,1fr);
+}
+.slp-story--feature-mosaic.slp-story--night .slp-story-content .grid {
+  grid-template-columns: repeat(2,minmax(0,1fr)) !important;
+}
+.slp-story--feature-mosaic.slp-story--night .slp-story-content .grid > :first-child {
+  grid-column: span 2;
+}
+
+/* Constrain responsive rhythm; don't shrink source body copy into illegibility. */
+@media(max-width:1080px) {
+  .slp-story--day { grid-template-columns: minmax(215px,.72fr) minmax(0,1.4fr); gap: 32px; }
+  .slp-story--night .slp-story-content .grid { grid-template-columns: repeat(2,minmax(0,1fr)) !important; }
+}
+@media(max-width:780px) {
+  .slp-story--day, .slp-story--night, .slp-story--product-casebook, .slp-story--feature-mosaic {
+    grid-template-columns: minmax(0,1fr);
+    row-gap: 22px;
+  }
+  .slp-story--day.slp-story--eyebrow .slp-story-intro p:nth-of-type(1) { max-width: 22ch !important; }
+  .slp-story--day .slp-story-content .grid { grid-auto-rows: minmax(155px,auto); }
+  .slp-story--night .slp-story-content .grid { grid-template-columns: repeat(2,minmax(0,1fr)) !important; }
+}
+@media(max-width:550px) {
+  .slp-story { gap: 22px; }
+  .slp-story--day .slp-story-content .grid,
+  .slp-story--night .slp-story-content .grid,
+  .slp-story--inherit .slp-story-content .grid,
+  .slp-story--feature-mosaic.slp-story--night .slp-story-content .grid {
+    grid-template-columns: minmax(0,1fr) !important;
+    grid-auto-rows: auto !important;
+    gap: 11px !important;
+  }
+  .slp-story--day .slp-story-content .grid > * {
+    padding: 19px !important;
+    display: grid !important;
+    grid-template-columns: 48px minmax(0,1fr);
+    gap: 16px !important;
+    align-items: start !important;
+  }
+  .slp-story--day.slp-story--eyebrow .slp-story-intro p:nth-of-type(1) {
+    font-size: clamp(31px,8.8vw,40px) !important;
+    max-width: 20ch !important;
+  }
+  .slp-story--night .slp-story-intro h2 { font-size: clamp(31px,8.3vw,39px) !important; }
+  .slp-story--night .slp-story-content .grid > * { min-height: 0 !important; padding: 22px !important; }
+  .slp-story--night .slp-story-content .grid > * h3 { margin-top: 16px !important; }
+  .slp-story--feature-mosaic.slp-story--night .slp-story-content .grid > :first-child { grid-column: auto; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .slp-story-content .grid > * { transition: none !important; }
 }

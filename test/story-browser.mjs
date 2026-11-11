@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import {strict as assert} from "node:assert";
 import {chromium} from "playwright";
-const url=process.argv[2],number=Number(process.argv[3]);
+const url=process.argv[2],number=Number(process.argv[3]),tone=process.argv[4];
 if(!url||!Number.isInteger(number)||number<3)throw Error("Need URL and source-backed card count");
 const browser=await chromium.launch({executablePath:process.env.SLOPPERTIZER_BROWSER_PATH||undefined});
 try{
@@ -11,6 +11,23 @@ try{
   const response=await page.goto(url,{waitUntil:"networkidle",timeout:55000});
   assert.equal(response.status(),200,name+": page loads");
   const story=page.locator(".slp-story");
+  if(tone) {
+    assert.equal((await story.getAttribute("class")).includes("slp-story--"+tone),true,name+": inferred source art direction");
+    const styles=await story.evaluate(el=>{
+      const root=getComputedStyle(el),title=el.querySelector(".slp-story-intro h2"),
+        card=el.querySelector(".slp-story-content .grid > *");
+      return {background:root.backgroundColor,headingSize:parseFloat(getComputedStyle(title).fontSize),
+        cardBackground:card?getComputedStyle(card).backgroundColor:null};
+    });
+    if(tone==="night"){
+      assert(styles.headingSize>=30,name+": headline scale intentional");
+      assert.equal(styles.cardBackground,"rgb(17, 28, 48)",name+": cards respect source night palette");
+    } else if(tone==="day"){
+      assert(styles.headingSize<19,name+": Features acts as eyebrow not oversized headline");
+      assert.equal(styles.cardBackground,"rgb(251, 250, 247)",name+": cards respect source warm neutral palette");
+    }
+  }
+
   assert.equal(await story.count(),1,name+": exactly one feature story");
   assert.equal(await story.locator(".slp-story-intro").count(),1);
   assert.equal(await story.locator(".slp-story-content").count(),1);

@@ -1,6 +1,6 @@
 import test from "node:test";
 import {strict as assert} from "node:assert";
-import {inspectStory,composeStory,validateStoryPlan,STORY_LAYOUTS} from "../src/engine/story.mjs";
+import {inspectStory,composeStory,validateStoryPlan,STORY_LAYOUTS,inferStoryArtDirection} from "../src/engine/story.mjs";
 
 const staticSource=[
  'import React from "react";',
@@ -59,4 +59,24 @@ test("rejects ambiguous areas, unsafe JSX siblings, and double composition",()=>
  assert.throws(()=>inspectStory(dynamic),/exactly one/);
  const done=composeStory(mapSource,{layout:"editorial-rail"});
  assert.throws(()=>composeStory(done.source,{layout:"product-casebook"}),/already composed/);
+});
+
+test("art direction follows actual source design tokens and heading role",()=>{
+ const light='return <main className="bg-gray-50"><div className="bg-white"><div className="bg-amber-500"></div></div></main>';
+ const dark='return <div className="bg-background"><section className="bg-gradient-hero"></section><div className="bg-card/60"></div></div>';
+ const unknown='return <main><h2>Hello</h2></main>';
+ assert.deepEqual(inferStoryArtDirection(light,"Features"),{tone:"day",headingRole:"eyebrow"});
+ assert.deepEqual(inferStoryArtDirection(dark,"Six AI superpowers. One unified workspace."),{tone:"night",headingRole:"headline"});
+ assert.equal(inferStoryArtDirection(unknown,"Features").tone,"inherit");
+});
+test("generated JSX carries the inferred theme but retains source product content",()=>{
+ const daySource=staticSource.replace("return <main>","return <main className='bg-gray-50'>");
+ const nightSource=mapSource.replace("return <main>","return <main className='bg-background bg-gradient-hero'>");
+ const day=composeStory(daySource,{layout:"editorial-rail"});
+ const night=composeStory(nightSource,{layout:"editorial-rail"});
+ assert.equal(day.tone,"day");assert.equal(day.headingRole,"eyebrow");
+ assert.equal(night.tone,"night");assert.equal(night.headingRole,"headline");
+ assert.match(day.source,/slp-story--day slp-story--eyebrow/);
+ assert.match(night.source,/slp-story--night slp-story--headline/);
+ for(const x of [day,night])assert(x.source.includes("onClick={()=>console.log"));
 });

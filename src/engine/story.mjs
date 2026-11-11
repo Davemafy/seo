@@ -84,6 +84,18 @@ function validateChildren(parent,sf){
  if(nodes.some(n=>ts.isJsxExpression(n)))return null;
  return visual;
 }
+/**
+ * Infer the surrounding design language from existing source utility tokens.
+ * Unknown themes inherit their original styles rather than receiving a
+ * generic light product aesthetic.
+ */
+export function inferStoryArtDirection(source,heading){
+ const light=/(?:bg-gray-50|bg-white|bg-amber-\d{3})/.test(source);
+ const dark=/(?:bg-background|bg-gradient-hero|bg-card\/[\d]+)/.test(source);
+ const tone=dark&&!light?"night":light&&!dark?"day":"inherit";
+ const headingRole=/^(?:features|benefits|capabilities|what you get)\.?$/i.test(String(heading).trim())?"eyebrow":"headline";
+ return {tone,headingRole};
+}
 export function inspectStory(source){
  if(typeof source!=="string"||source.length>90000||source.includes(CSS_FILE))throw Error("Unsupported or already composed source");
  const sf=ts.createSourceFile("site.tsx",source,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);
@@ -129,8 +141,9 @@ export function composeStory(source,plan={layout:"editorial-rail"}){
  // This is a genuine JSX component tree rewrite, not a CSS selector pass.
  // Both React subtrees are embedded byte-for-byte, including keys, Link,
  // map callbacks, event handlers and original product copy.
+ const art=inferStoryArtDirection(source,inventory.heading);
  const replacement=[
-  '<div className="slp-story slp-story--'+design.layout+'" data-slp-story="source-preserved">',
+  '<div className="slp-story slp-story--'+design.layout+' slp-story--'+art.tone+' slp-story--'+art.headingRole+'" data-slp-story="source-preserved">',
   '  <div className="slp-story-intro">'+inventory.intro+'</div>',
   '  <div className="slp-story-content">'+inventory.collection+'</div>',
   '</div>'
@@ -147,7 +160,7 @@ export function composeStory(source,plan={layout:"editorial-rail"}){
  const before=inventory.controls,after=sourceControls(output);
  for(const k of Object.keys(before))if(before[k]!==after[k])throw Error("Original "+k+" changed");
  return {
-  source:output,layout:design.layout,sourceType:inventory.sourceType,
+  source:output,layout:design.layout,tone:art.tone,headingRole:art.headingRole,sourceType:inventory.sourceType,
   count:inventory.count,heading:inventory.heading,
   protectedHashes:[inventory.protectedIntroHash,inventory.protectedCardsHash],
   originalHash:inventory.originalHash,outputHash:sha256(output),
@@ -172,7 +185,7 @@ export function composeStoryProject({project,output,layout="editorial-rail"}){
  const sheet=readFileSync(new URL("./story.css",import.meta.url),"utf8");
  writeFileSync(resolve(target,dirname(site.entry),CSS_FILE),sheet);
  const receipt={product:site.product,sourceType:result.sourceType,layout:result.layout,featureCount:result.count,
-  entry:site.entry,protectedHashes:result.protectedHashes,originalHash:result.originalHash,outputHash:result.outputHash,
+  entry:site.entry,themeTone:result.tone,headingRole:result.headingRole,protectedHashes:result.protectedHashes,originalHash:result.originalHash,outputHash:result.outputHash,
   originalControls:result.preserved,changed:[site.entry,join(dirname(site.entry),CSS_FILE)],
   status:"UNVERIFIED: compile, browser interactions, screenshots and independent visual review required"};
  writeFileSync(join(target,"sloppertizer-story-receipt.json"),JSON.stringify(receipt,null,2)+"\n");
