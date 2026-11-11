@@ -104,7 +104,7 @@ function makeComponent(data){
   '  },[active]);',
   "  return (",
   '    <aside className="slp-plan-explorer" aria-label="Compare published plans">',
-  '      <div className="slp-plan-explorer-heading"><span>PLAN GUIDE / COMPARE DETAILS</span><span>SELECT TO EXPLORE</span></div>',
+  '      <div className="slp-plan-explorer-heading"><span>SELECT A PLAN</span></div>',
   '      <div className="slp-plan-explorer-tabs" role="group" aria-label="Select a plan">',
   '        {plans.map((plan,i)=><button type="button" key={plan.id} className={active===i?"slp-plan-explorer-tab is-selected":"slp-plan-explorer-tab"} aria-pressed={active===i} onClick={()=>setActive(i)}>{plan.name}</button>)}',
   '      </div>',
