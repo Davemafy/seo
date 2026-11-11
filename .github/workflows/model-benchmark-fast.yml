@@ -1,0 +1,174 @@
+name: Sloppertizer — fast model calibration and candidate verification
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/model-benchmark-fast.yml
+      - src/engine/vision-fixtures.py
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: sloppertizer-model-benchmark-fast
+  cancel-in-progress: false
+jobs:
+  fixtures:
+    name: Generate two known-answer image canaries without Chromium
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Render calibration images locally, no inference key
+        run: |
+          python -m pip install --quiet Pillow==11.3.0
+          python src/engine/vision-fixtures.py --output canary
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fast-model-image-canaries
+          path: canary/
+          retention-days: 14
+  vision:
+    name: Compare five Vultr models on both image canaries
+    needs: fixtures
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/download-artifact@v4
+        with:
+          name: fast-model-image-canaries
+          path: canary
+      - name: Run calibration with strict catalog and actual model ID checks
+        env:
+          VULTR_INFERENCE_API_KEY: ${{ secrets.VULTR_INFERENCE_API_KEY }}
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          test -n "$VULTR_INFERENCE_API_KEY"
+          node src/engine/vision-calibration.mjs --action benchmark --images canary --models glm-5.2,glm-5.3,qwen3.8-27b,muse-glimmer-30b,deepseek-v4.1-flash-1017 --output vision-benchmark.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fast-model-vision-scores
+          path: vision-benchmark.json
+          retention-days: 14
+          if-no-files-found: warn
+
+  verify:
+    name: Build previously generated model candidates using system browser
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/download-artifact@v4
+        with:
+          name: model-design-candidates
+          run-id: 43034692874
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: candidates
+      - uses: actions/download-artifact@v4
+        with:
+          name: cactus-premium-editorial-evidence
+          run-id: 43010629241
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: baseline
+      - name: Install JavaScript harness and use preinstalled Chrome when available
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          if command -v google-chrome >/dev/null; then
+            echo "SLOPPERTIZER_BROWSER_PATH=$(command -v google-chrome)" >> "$GITHUB_ENV"
+          elif command -v chromium >/dev/null; then
+            echo "SLOPPERTIZER_BROWSER_PATH=$(command -v chromium)" >> "$GITHUB_ENV"
+          else
+            npx playwright install chromium
+          fi
+      - name: Build and capture each model in an uncredentialed runner
+        run: |
+          set +e
+          mkdir -p results
+          port=3200
+          for model in glm-5.2 glm-5.3 qwen3.8-27b; do
+            port=$((port+1))
+            mkdir -p "results/$model"
+            if test ! -f "candidates/$model/package.json"; then echo "No candidate: $model"; continue; fi
+            npm ci --prefix "candidates/$model" --legacy-peer-deps --ignore-scripts --no-audit --no-fund
+            if [ $? -ne 0 ]; then echo "Cannot install: $model"; continue; fi
+            npm --prefix "candidates/$model" run build
+            if [ $? -ne 0 ]; then echo "Cannot build: $model"; continue; fi
+            npm --prefix "candidates/$model" run dev -- --host 127.0.0.1 --port "$port" --strictPort >"/tmp/$model.log" 2>&1 &
+            pid=$!
+            for i in $(seq 1 35); do curl -fsS "http://127.0.0.1:$port/" >/dev/null 2>&1 && break; sleep 1; done
+            node src/engine/capture.mjs --url "http://127.0.0.1:$port/" --output "results/$model"
+            if test -f "results/$model/report.json"; then
+              node src/engine/selection.mjs --before baseline/rendered/report.json --after "results/$model/report.json" --output "results/$model/gate.json"
+            fi
+            kill "$pid" 2>/dev/null || true
+          done
+          exit 0
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fast-model-browser-results
+          path: results/
+          retention-days: 14
+          if-no-files-found: warn
+
+  evaluate:
+    name: Compare the actual rendered designs with an image-calibrated independent judge
+    needs: [vision,verify]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/download-artifact@v4
+        with:
+          name: fast-model-vision-scores
+          path: calibration
+      - uses: actions/download-artifact@v4
+        with:
+          name: fast-model-browser-results
+          path: results
+      - uses: actions/download-artifact@v4
+        with:
+          name: cactus-baseline
+          run-id: 42990093112
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: original
+      - name: Run same independent jury against all three model outputs
+        env:
+          VULTR_INFERENCE_API_KEY: ${{ secrets.VULTR_INFERENCE_API_KEY }}
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          test -n "$VULTR_INFERENCE_API_KEY"
+          node src/engine/model-benchmark.mjs --action judge --original original/desktop.png --results results --vision calibration/vision-benchmark.json --models glm-5.2,glm-5.3,qwen3.8-27b --output model-comparison.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fast-model-final-comparison
+          path: |
+            model-comparison.json
+            results/*/jury.json
+          retention-days: 14
+          if-no-files-found: warn
