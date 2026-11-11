@@ -1,0 +1,57 @@
+name: Sloppertizer — vision model grounding benchmark
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/vision-model-benchmark.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: sloppertizer-vision-benchmark
+  cancel-in-progress: false
+jobs:
+  calibrate:
+    name: Compare actual screenshot reading on Vultr models
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install browser tools
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx playwright install --with-deps chromium
+          npm test
+      - name: Render two paired image fixtures with known visual details
+        run: node src/engine/vision-calibration.mjs --action fixtures --output calibration
+      - name: Compare 4 model IDs against the identical image tasks
+        env:
+          VULTR_INFERENCE_API_KEY: ${{ secrets.VULTR_INFERENCE_API_KEY }}
+        run: |
+          test -n "$VULTR_INFERENCE_API_KEY" || (echo "::error::Vultr inference key missing" && exit 1)
+          node src/engine/vision-calibration.mjs --action benchmark \
+            --images calibration \
+            --models glm-5.2,glm-5.3,muse-glimmer-30b,deepseek-v4.1-flash-1017 \
+            --output calibration-results.json
+      - name: Print public non-secret evidence summary
+        if: always()
+        run: |
+          if test -f calibration-results.json; then
+            node --input-type=module -e 'import fs from "node:fs"; const x=JSON.parse(fs.readFileSync("calibration-results.json")); console.log(JSON.stringify(x.rows.map(r=>({model:r.model,score:r.earned+"/8",eligible:r.eligibleForJudging,priceUsd:r.estimatedUsd,errors:r.trials.filter(t=>t.error).map(t=>t.error)})),null,2));'
+          fi
+      - name: Keep calibration images and full per-model evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vision-calibration-evidence
+          path: |
+            calibration/
+            calibration-results.json
+          retention-days: 14
+          if-no-files-found: warn
