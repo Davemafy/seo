@@ -20,6 +20,10 @@ try{
         cardBackground:card?getComputedStyle(card).backgroundColor:null};
     });
     if(tone==="night"){
+      const icon=await story.locator(".slp-story-content .grid > * .size-11").first().boundingBox();
+      assert(icon&&icon.width>=40&&icon.width<=50&&icon.height>=40&&icon.height<=50,
+        name+": nested brand icon remains 44px instead of becoming a feature grid");
+
       assert(styles.headingSize>=30,name+": headline scale intentional");
       assert.equal(styles.cardBackground,"rgb(17, 28, 48)",name+": cards respect source night palette");
     } else if(tone==="day"){
