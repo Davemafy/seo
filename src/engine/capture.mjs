@@ -12,6 +12,7 @@ export async function capture(url,output) {
       const errors=[];
       page.on("pageerror",x=>errors.push(x.message));
       const res=await page.goto(url,{waitUntil:"networkidle",timeout:55000});
+      await page.waitForTimeout(4500);
       await page.screenshot({path:join(output,view+".png"),fullPage:true,animations:"disabled"});
       const dims=await page.evaluate(()=>{
         const el=document.querySelector("h1,h2");
