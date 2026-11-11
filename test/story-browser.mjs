@@ -25,7 +25,9 @@ try{
         name+": nested brand icon remains 44px instead of becoming a feature grid");
 
       assert(styles.headingSize>=30,name+": headline scale intentional");
-      assert.equal(styles.cardBackground,"rgb(17, 28, 48)",name+": cards respect source night palette");
+      const casebook=(await story.getAttribute("class")).includes("slp-story--product-casebook");
+      assert.equal(styles.cardBackground,casebook?"rgba(0, 0, 0, 0)":"rgb(17, 28, 48)",
+        name+": feature treatment stays within source night palette");
     } else if(tone==="day"){
       assert(styles.headingSize<19,name+": Features acts as eyebrow not oversized headline");
       assert.equal(styles.cardBackground,"rgb(251, 250, 247)",name+": cards respect source warm neutral palette");
