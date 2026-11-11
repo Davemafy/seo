@@ -31,7 +31,7 @@ try {
       assert.equal(await page.locator("#"+item.anchor).count(),1);
       const card=page.locator("#"+item.anchor);
       await page.waitForFunction((id)=>document.getElementById(id)?.getAttribute("data-slp-selected")==="true",item.anchor);
-      const border=await card.evaluate(el=>getComputedStyle(el).borderTopColor);
+      const border=await card.evaluate(el=>getComputedStyle(el).outlineColor);
       if(border!=="rgb(171, 107, 73)") {
         const debug=await page.evaluate(()=>{
           const button=document.querySelector('.slp-plan-explorer-tab[aria-pressed="true"]');
@@ -58,7 +58,7 @@ try {
         }));
         console.log(view+": selected-card CSS diagnosis",JSON.stringify({...debug,selectedId:item.anchor,ruleDetails}));
       }
-      assert.equal(border,"rgb(171, 107, 73)",view+": selected source card matches active plan");
+      assert.equal(border,"rgb(171, 107, 73)",view+": selected source card outline matches active plan");
     }
     const last=selector.getByRole("button",{name:"Enterprise"});
     await last.focus();

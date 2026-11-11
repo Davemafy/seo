@@ -144,6 +144,7 @@
   background:#fbf9f2!important;
   border:1px solid #d2dbd0!important;
   padding:26px 24px!important;
+  outline:0!important;
 }
 .slp-engine:not(#slp-plan-selection-priority):not(#slp-editorial-priority) .slp-exp-plan[data-slp-selected="false"] > a{
   background:#204c38!important;
@@ -153,6 +154,8 @@
   background:#fff8e9!important;
   border:2px solid #ab6b49!important;
   padding:25px 23px!important;
+  outline:2px solid #ab6b49!important;
+  outline-offset:-2px!important;
 }
 .slp-engine:not(#slp-plan-selection-priority):not(#slp-editorial-priority) .slp-exp-plan[data-slp-selected="true"] > a{
   background:#985332!important;
