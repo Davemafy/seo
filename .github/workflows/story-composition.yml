@@ -1,0 +1,118 @@
+name: Sloppertizer — source-preserving React composition cross-site
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/story-composition.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: sloppertizer-story-composition
+  cancel-in-progress: false
+jobs:
+  build-and-browser:
+    name: ${{ matrix.site }} - ${{ matrix.layout }} source-preserving composition
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - site: cactus
+            repository: traintocode/landing-page-react-tailwind
+            revision: 0c4fcbe4e98948bf4021384d582ef3865194d98b
+            layout: editorial-rail
+            cards: 4
+          - site: cactus
+            repository: traintocode/landing-page-react-tailwind
+            revision: 0c4fcbe4e98948bf4021384d582ef3865194d98b
+            layout: product-casebook
+            cards: 4
+          - site: workflow
+            repository: TinyikoMamban/workflowai-pro
+            revision: 1ab6e6fba96ad6cadec64bfa9132398313b40986
+            layout: editorial-rail
+            cards: 6
+          - site: workflow
+            repository: TinyikoMamban/workflowai-pro
+            revision: 1ab6e6fba96ad6cadec64bfa9132398313b40986
+            layout: product-casebook
+            cards: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ matrix.repository }}
+          ref: ${{ matrix.revision }}
+          path: original
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Run source integrity and composition unit tests
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm test
+      - name: Compose source-preserving DOM structure; no inference or site-specific templates
+        run: |
+          node src/engine/story.mjs --project original --output candidate --layout '${{ matrix.layout }}'
+          cat candidate/sloppertizer-story-receipt.json
+      - name: Build both original and transformed projects with no keys
+        env:
+          VITE_SUPABASE_URL: https://example.invalid
+          VITE_SUPABASE_PUBLISHABLE_KEY: demo-publishable-only
+          SUPABASE_URL: https://example.invalid
+          SUPABASE_PUBLISHABLE_KEY: demo-publishable-only
+        run: |
+          npm ci --prefix original --legacy-peer-deps --ignore-scripts --no-audit --no-fund
+          npm ci --prefix candidate --legacy-peer-deps --ignore-scripts --no-audit --no-fund
+          npm --prefix original run build
+          npm --prefix candidate run build
+      - name: Install browser and capture original + candidate
+        run: npx playwright install chromium --only-shell
+      - name: Capture the untouched original at 1440px and 390px
+        env:
+          VITE_SUPABASE_URL: https://example.invalid
+          VITE_SUPABASE_PUBLISHABLE_KEY: demo-publishable-only
+          SUPABASE_URL: https://example.invalid
+          SUPABASE_PUBLISHABLE_KEY: demo-publishable-only
+        run: |
+          npm --prefix original run dev -- --host 127.0.0.1 --port 3201 --strictPort >/tmp/story-original.log 2>&1 &
+          for i in $(seq 1 50); do curl -fsS http://127.0.0.1:3201/ >/dev/null 2>&1 && break; sleep 1; done
+          node src/engine/capture.mjs --url http://127.0.0.1:3201/ --output evidence/baseline
+      - name: Capture the transformed React project and verify original cards still work
+        env:
+          VITE_SUPABASE_URL: https://example.invalid
+          VITE_SUPABASE_PUBLISHABLE_KEY: demo-publishable-only
+          SUPABASE_URL: https://example.invalid
+          SUPABASE_PUBLISHABLE_KEY: demo-publishable-only
+        run: |
+          npm --prefix candidate run dev -- --host 127.0.0.1 --port 3202 --strictPort >/tmp/story-candidate.log 2>&1 &
+          for i in $(seq 1 50); do curl -fsS http://127.0.0.1:3202/ >/dev/null 2>&1 && break; sleep 1; done
+          node test/story-browser.mjs http://127.0.0.1:3202/ ${{ matrix.cards }}
+          node src/engine/capture.mjs --url http://127.0.0.1:3202/ --output evidence/candidate
+      - name: Reject visual, link, accessibility, runtime or height regressions
+        id: gate
+        continue-on-error: true
+        run: |
+          node src/engine/selection.mjs --before evidence/baseline/report.json --after evidence/candidate/report.json --output evidence/gate.json
+      - name: Preserve actual rendered evidence even for rejected candidates
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: story-${{ matrix.site }}-${{ matrix.layout }}
+          path: |
+            candidate/sloppertizer-story-receipt.json
+            evidence/
+          retention-days: 14
+          if-no-files-found: warn
+      - name: Block unaccepted design export
+        if: steps.gate.outcome == 'failure'
+        run: |
+          echo "::error::Browser or visual-safety gate rejected the candidate; no deployment."
+          exit 1
