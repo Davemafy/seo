@@ -31,6 +31,22 @@ try {
       assert.equal(await page.locator("#"+item.anchor).count(),1);
       const card=page.locator("#"+item.anchor);
       const border=await card.evaluate(el=>getComputedStyle(el).borderTopColor);
+      if(border!=="rgb(171, 107, 73)") {
+        const debug=await page.evaluate(()=>{
+          const button=document.querySelector('.slp-plan-explorer-tab[aria-pressed="true"]');
+          const card=document.querySelector('.slp-exp-plan-1');
+          return {
+            activeButton:button?.outerHTML.slice(0,300),
+            buttonParent:button?.parentElement?.outerHTML.slice(0,300),
+            firstChild:button?.matches(':nth-child(1)'),
+            section:button?.closest('.slp-exp-pricing')?.className,
+            selectorMatch:document.querySelectorAll('.slp-exp-pricing:has(.slp-plan-explorer-tab:nth-child(1)[aria-pressed="true"]) .slp-exp-plan-1').length,
+            genericMatch:document.querySelectorAll('.slp-exp-pricing:has(.slp-plan-explorer-tab[aria-pressed="true"]) .slp-exp-plan-1').length,
+            cardClass:card?.className
+          };
+        });
+        console.log(view+": selected-card CSS diagnosis",JSON.stringify(debug));
+      }
       assert.equal(border,"rgb(171, 107, 73)",view+": selected source card matches active plan");
     }
     const last=selector.getByRole("button",{name:"Enterprise"});
