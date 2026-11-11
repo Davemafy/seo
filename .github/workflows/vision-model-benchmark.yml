@@ -9,7 +9,7 @@ permissions:
   contents: read
 concurrency:
   group: sloppertizer-vision-benchmark
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   calibrate:
     name: Compare actual screenshot reading on Vultr models
@@ -23,13 +23,16 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-      - name: Install browser tools
+      - name: Run engine tests without browser installation
+        run: npm ci --ignore-scripts --no-audit --no-fund && npm test
+      - name: Render two deterministic PNG canaries without browser dependency
         run: |
-          npm ci --ignore-scripts --no-audit --no-fund
-          npx playwright install --with-deps chromium
-          npm test
-      - name: Render two paired image fixtures with known visual details
-        run: node src/engine/vision-calibration.mjs --action fixtures --output calibration
+          mkdir -p calibration
+          node --input-type=module - <<'JS'
+          import { writeVisionFixture } from "./src/engine/vision-fixture-png.mjs";
+          writeVisionFixture({id:"alpha",brand:"CEDAR STUDIO",badge:"Q7K-42",selected:"STARTER",headerColor:"green"},"calibration");
+          writeVisionFixture({id:"beta",brand:"NOVA LABS",badge:"M3P-81",selected:"TEAM",headerColor:"navy"},"calibration");
+          JS
       - name: Compare 4 model IDs against the identical image tasks
         env:
           VULTR_INFERENCE_API_KEY: ${{ secrets.VULTR_INFERENCE_API_KEY }}
