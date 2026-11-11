@@ -6,6 +6,8 @@ on:
       - .github/workflows/premium-contrast.yml
       - src/engine/repair-from-axe.mjs
       - test/repair-from-axe.test.mjs
+      - src/engine/accessibility.mjs
+      - src/engine/selection.mjs
   workflow_dispatch:
 permissions:
   contents: read
