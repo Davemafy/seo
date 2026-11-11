@@ -34,3 +34,9 @@ test("refuses invented differentiated proof, dynamic prices and ambiguous struct
  assert.throws(()=>inspectPlans(dynamic),/Ambiguous|Dynamic price/);
  assert.throws(()=>composePlanExplorer(fixture+'<section className="slp-exp-pricing"></section>'),/Ambiguous/);
 });
+
+test("ignores JSX comments in original plan lists but keeps actual text",()=>{
+ const version=fixture.replace("<li>Team: <span>1 developer</span></li>","<li>{/* Original icon */}<svg strokeWidth={1.5}/><span>Team: </span><span>1 developer</span></li>");
+ const parsed=inspectPlans(version);
+ assert(parsed.plans[0].facts.includes("Team: 1 developer"));
+});

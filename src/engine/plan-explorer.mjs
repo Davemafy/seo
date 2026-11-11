@@ -31,8 +31,12 @@ function text(n,sf) {
   const all=[];
   function walk(x){
     if(ts.isJsxText(x))all.push(x.getText(sf));
-    else if(ts.isJsxExpression(x))throw Error("Dynamic price or plan fact unsupported");
-    else ts.forEachChild(x,walk);
+    else if(ts.isJsxExpression(x)){
+      if(x.expression)throw Error("Dynamic price or plan fact unsupported");
+      // React JSX comments are expression nodes with no expression.
+    }
+    else if(ts.isJsxElement(x)||ts.isJsxFragment(x))x.children.forEach(walk);
+    // Attribute expressions are not visible text and must not be parsed as facts.
   }
   walk(n);
   return all.join(" ").replace(/\s+/g," ").trim();
