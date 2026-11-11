@@ -30,6 +30,7 @@ try {
       assert.equal(await link.getAttribute("href"),"#"+item.anchor);
       assert.equal(await page.locator("#"+item.anchor).count(),1);
       const card=page.locator("#"+item.anchor);
+      await page.waitForFunction((id)=>document.getElementById(id)?.getAttribute("data-slp-selected")==="true",item.anchor);
       const border=await card.evaluate(el=>getComputedStyle(el).borderTopColor);
       if(border!=="rgb(171, 107, 73)") {
         const debug=await page.evaluate(()=>{

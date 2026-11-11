@@ -82,7 +82,7 @@ export function inspectPlans(source){
   const anchors=plans.map((n,i)=>{
     const open=ts.isJsxElement(n)?n.openingElement:n;
     if(open.attributes?.properties.some(p=>ts.isJsxAttribute(p)&&p.name.getText(sf)==="id"))throw Error("Plan already has an anchor");
-    return {pos:open.end-1,id:details[i].id};
+    return {pos:open.end-1,id:details[i].id,selected:i===0};
   });
   return {introStart:textParagraph.getStart(sf),introEnd:textParagraph.getEnd(),plans:enriched,anchors,
     originalIntro:text(textParagraph,sf),sourceHash:sha256(source)};
@@ -116,13 +116,13 @@ function makeComponent(data){
 export function composePlanExplorer(source){
  const data=inspectPlans(source);
  const edits=[{pos:data.introStart,end:data.introEnd,text:"<SloppertizerPlanExplorer />"},
-   ...data.anchors.map(a=>({pos:a.pos,end:a.pos,text:' id="'+a.id+'"'}))];
+   ...data.anchors.map(a=>({pos:a.pos,end:a.pos,text:' id="'+a.id+'" data-slp-selected="'+a.selected+'"'}))];
  let updated=source;
  for(const e of edits.sort((a,b)=>b.pos-a.pos))updated=updated.slice(0,e.pos)+e.text+updated.slice(e.end);
  const imports=[...updated.matchAll(/^import[^\n]*;[ \t]*$/gm)];
  if(!imports.length)throw Error("Missing import anchor");
  const x=imports.at(-1),insert=x.index+x[0].length;
- updated=updated.slice(0,insert)+'\nimport { useState as slpPlanState } from "react";\nimport "./'+CSS+'";'+updated.slice(insert);
+ updated=updated.slice(0,insert)+'\nimport { useState as slpPlanState, useLayoutEffect as slpPlanEffect } from "react";\nimport "./'+CSS+'";'+updated.slice(insert);
  updated+=makeComponent(data.plans);
  const output=ts.createSourceFile("result.tsx",updated,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);
  if(output.parseDiagnostics.length)throw Error("Composed TSX is invalid");

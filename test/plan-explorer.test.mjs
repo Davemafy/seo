@@ -23,8 +23,10 @@ test("extracts verified source facts, prices and plan distinctions from unrelate
 });
 test("composition retains checkout links and source plan cards with accessible React state",()=>{
  const a=composePlanExplorer(fixture);
- for(const x of ["/starter","/company","/enterprise",'<SloppertizerPlanExplorer />','import "./sloppertizer.plan-explorer.css";','aria-pressed={active===i}','role="group"','id="slp-source-plan-3"'])assert(a.source.includes(x),x);
+ for(const x of ["/starter","/company","/enterprise",'<SloppertizerPlanExplorer />','import "./sloppertizer.plan-explorer.css";','aria-pressed={active===i}','role="group"','id="slp-source-plan-3" data-slp-selected="false"'])assert(a.source.includes(x),x);
  assert(a.source.includes("slpPlanState(0)"));
+ assert(a.source.includes("slpPlanEffect"));
+ assert(a.source.includes("data-slp-selected"));
  assert(!a.source.includes("fake testimonial"));
 });
 test("refuses invented differentiated proof, dynamic prices and ambiguous structures",()=>{
