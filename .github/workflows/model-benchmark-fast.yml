@@ -5,6 +5,8 @@ on:
     paths:
       - .github/workflows/model-benchmark-fast.yml
       - src/engine/vision-fixtures.py
+      - src/engine/capture.mjs
+      - test/selection.test.mjs
   workflow_dispatch:
 permissions:
   contents: read

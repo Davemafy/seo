@@ -64,7 +64,7 @@ test("automated candidate generation uses mock inference and preserves source",a
   }finally{rmSync(root,{force:true,recursive:true});rmSync(target,{force:true,recursive:true});}
 });
 test("compares browser quality and preserves original links/buttons",()=>{
- const b={desktop:{status:200,pageHeight:2100,headlineLines:2,headlineFontSize:40,links:[{href:"/pricing"}],buttons:[{text:"Try"}]},mobile:{status:200,pageHeight:3000,headlineLines:2,headlineFontSize:36,links:[{href:"/pricing"}],buttons:[{text:"Try"}]}};
+ const b={desktop:{status:200,pageHeight:2100,headlineLines:2,headlineFontSize:40,links:[{href:"/pricing"}],buttons:[{text:"Try"}],textCollisions:[]},mobile:{status:200,pageHeight:3000,headlineLines:2,headlineFontSize:36,links:[{href:"/pricing"}],buttons:[{text:"Try"}],textCollisions:[]}};
  b.desktop.accessibility={verified:true,contrastFailures:0,violations:[]};
  b.mobile.accessibility={verified:true,contrastFailures:0,violations:[]};
  const c=structuredClone(b);c.mobile.links=[];
