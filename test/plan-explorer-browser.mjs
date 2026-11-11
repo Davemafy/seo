@@ -26,7 +26,9 @@ try {
       assert.equal(await button.getAttribute("aria-pressed"),"true",view+": select "+item.label);
       assert.equal(await ui.locator(".slp-plan-explorer-price strong").innerText(),item.price);
       assert.match(await ui.locator(".slp-plan-explorer-content").innerText(),new RegExp(item.fact.replace("+","\\+")),view+": source facts "+item.label);
-      const link=ui.getByRole("link",{name:new RegExp("See full "+item.label+" details")});
+      // Pricing details are now shown in the selected source card; the hidden helper
+      // link still retains a valid anchor but is not in the accessibility tree.
+      const link=ui.locator(".slp-plan-explorer-link");
       assert.equal(await link.getAttribute("href"),"#"+item.anchor);
       assert.equal(await page.locator("#"+item.anchor).count(),1);
       const card=page.locator("#"+item.anchor);
