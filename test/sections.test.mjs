@@ -30,3 +30,12 @@ test("fails closed when requested composition is absent or repeated",()=>{
  assert.throws(()=>annotateSections(source.replace(/<footer[\s\S]*?<\/footer>/,"")),/unambiguous/);
  assert.throws(()=>annotateSections(source.replace('className="marketing"','className={dynamicClass}')),/Dynamic className/);
 });
+
+test("recomposition invalidates stale color patches instead of overriding a new background",()=>{
+ const previous='import "./sloppertizer.contrast.css";\n'+source;
+ const result=annotateSections(previous);
+ assert.equal(result.hadStaleContrast,true);
+ assert(!result.source.includes('import "./sloppertizer.contrast.css";'));
+ assert(result.source.includes('sloppertizer.sections.css'));
+ assert(result.source.includes('href="/start"'));
+});

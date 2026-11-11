@@ -55,20 +55,39 @@ jobs:
           npm --prefix candidate run dev -- --host 127.0.0.1 --port 3000 --strictPort >/tmp/premium-sections.log 2>&1 &
           for i in $(seq 1 45); do curl -fsS http://127.0.0.1:3000/ >/dev/null 2>&1 && break; sleep 1; done
           node src/engine/capture.mjs --url http://127.0.0.1:3000/ --output screenshots
+      - name: Regenerate accessibility repairs after the design changed
+        run: |
+          if node -e 'const r=require("./screenshots/report.json");process.exit(((r.desktop.accessibility?.contrastFailures||0)+(r.mobile.accessibility?.contrastFailures||0))>0?0:1)'; then
+            node src/engine/repair-from-axe.mjs --project candidate --report screenshots/report.json --output candidate-repaired
+          else
+            cp -a candidate candidate-repaired
+          fi
+      - name: Build the freshly audited repaired candidate
+        run: |
+          npm ci --prefix candidate-repaired --legacy-peer-deps --ignore-scripts --no-audit --no-fund
+          npm --prefix candidate-repaired run build
+      - name: Capture final output and re-check real contrast failures
+        run: |
+          npm --prefix candidate-repaired run dev -- --host 127.0.0.1 --port 3001 --strictPort >/tmp/premium-editorial-final.log 2>&1 &
+          for i in $(seq 1 45); do curl -fsS http://127.0.0.1:3001/ >/dev/null 2>&1 && break; sleep 1; done
+          node src/engine/capture.mjs --url http://127.0.0.1:3001/ --output final-screenshots
       - name: Reject contrast, geometry and functionality regressions
         id: gate
         continue-on-error: true
-        run: node src/engine/selection.mjs --before baseline/after/report.json --after screenshots/report.json --output gate.json
+        run: node src/engine/selection.mjs --before baseline/after/report.json --after final-screenshots/report.json --output gate.json
       - name: Preserve full review artifacts even on rejection
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: premium-editorial-candidate
           path: |
-            candidate/src/App.tsx
-            candidate/src/sloppertizer.sections.css
-            candidate/sloppertizer-editorial-report.json
+            candidate-repaired/src/App.tsx
+            candidate-repaired/src/sloppertizer.sections.css
+            candidate-repaired/src/sloppertizer.contrast.css
+            candidate-repaired/sloppertizer-editorial-report.json
+            candidate-repaired/sloppertizer-contrast-report.json
             screenshots/
+            final-screenshots/
             gate.json
           retention-days: 14
           if-no-files-found: warn
@@ -102,7 +121,7 @@ jobs:
           VULTR_INFERENCE_API_KEY: ${{ secrets.VULTR_INFERENCE_API_KEY }}
         run: |
           test -n "$VULTR_INFERENCE_API_KEY" || (echo "::error::Missing Vultr inference secret" && exit 1)
-          node src/engine/visual-jury.mjs --original original/baseline-settled/desktop.png --candidate result/screenshots/desktop.png --mobile result/screenshots/mobile.png --output jury.json
+          node src/engine/visual-jury.mjs --original original/baseline-settled/desktop.png --candidate result/final-screenshots/desktop.png --mobile result/final-screenshots/mobile.png --output jury.json
       - uses: actions/upload-artifact@v4
         with:
           name: premium-editorial-jury

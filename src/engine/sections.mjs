@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { createRequire } from "node:module";
-import { cpSync, existsSync, lstatSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, lstatSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { discover } from "./site.mjs";
@@ -16,6 +16,13 @@ function contains(root,name,sf){return collect(root,n=>n!==root&&tag(n,sf)===nam
 function sourceHasPrice(n,sf,source){return /(?:\$|€|£)\s*\d{1,7}/.test(source.slice(n.pos,n.end));}
 export function annotateSections(source){
  if(source.includes(CSS_FILE))throw Error("Editorial sections already present");
+ // Contrast fixes are tied to old pixel colors and must be invalidated before composition changes.
+ const stale=/^[\t ]*import\s+["']\.\/sloppertizer\.contrast\.css["'];?[\t ]*(?:\r?\n|$)/m;
+ const clean=source.replace(stale,"");
+ if(clean===source && source.includes("sloppertizer.contrast.css"))throw Error("Unsupported prior contrast import");
+ const hadStaleContrast=clean!==source;
+ const originalSource=source;
+ source=clean;
  const sf=ts.createSourceFile("site.tsx",source,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);
  if(sf.parseDiagnostics.length)throw Error("JSX parsing failure");
  const mains=collect(sf,n=>tag(n,sf)==="main");
@@ -60,7 +67,7 @@ export function annotateSections(source){
  if(ts.createSourceFile("site.tsx",result,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX).parseDiagnostics.length)
   throw Error("Result JSX invalid");
  return {source:result,featureCount:kids(featureGrid[0]).length,planCount:planNodes.length,
-  sourceHash:sha256(source),resultHash:sha256(result)};
+  sourceHash:sha256(originalSource),resultHash:sha256(result),hadStaleContrast};
 }
 function safeCopy(from,to){
  cpSync(from,to,{recursive:true,force:false,errorOnExist:true,filter:path=>{
@@ -73,14 +80,15 @@ export function composeSections({project,output}){
  const site=discover(project),dest=resolve(output);
  if(existsSync(dest)||dest===site.root||dest.startsWith(site.root+sep)||site.root.startsWith(dest+sep))
   throw Error("Output must be a fresh separate directory");
+ if(site.sources.page.includes("slp-editorial-priority"))throw Error("Editorial priority marker collision");
  const parsed=annotateSections(site.sources.page);
  safeCopy(site.root,dest);
  writeFileSync(resolve(dest,site.entry),parsed.source);
- if(site.sources.page.includes("slp-editorial-priority"))throw Error("Editorial priority marker collision");
+ if(parsed.hadStaleContrast)rmSync(resolve(dest,dirname(site.entry),"sloppertizer.contrast.css"),{force:true});
  const css=readFileSync(fileURLToPath(new URL("./sections.css",import.meta.url)),"utf8").replaceAll(".slp-engine", ".slp-engine:not(#slp-editorial-priority)");
  writeFileSync(resolve(dest,dirname(site.entry),CSS_FILE),css);
  const report={product:site.product,featureCount:parsed.featureCount,planCount:parsed.planCount,
-  sourceHash:parsed.sourceHash,resultHash:parsed.resultHash,
+  sourceHash:parsed.sourceHash,resultHash:parsed.resultHash,invalidatedOldContrast:parsed.hadStaleContrast,
   changed:[site.entry,join(dirname(site.entry),CSS_FILE)],
   status:"UNVERIFIED: build, browser and visual review required"};
  writeFileSync(join(dest,"sloppertizer-editorial-report.json"),JSON.stringify(report,null,2)+"\n");
