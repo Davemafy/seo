@@ -28,12 +28,19 @@ const SYSTEM = [
 const str=(x,min=12,max=520)=>typeof x==="string" && x.trim().length>=min && x.length<=max;
 export function parseTastePlan(raw) {
  const obj=parseJsonReply(raw);
+ const meta={
+  keys:obj && typeof obj==="object"?Object.keys(obj).sort():[],
+  directions:Array.isArray(obj?.directions)?obj.directions.length:typeof obj?.directions,
+  negativeRules:Array.isArray(obj?.negativeRules)?obj.negativeRules.length:typeof obj?.negativeRules,
+  selectionRationaleLength:typeof obj?.selectionRationale==="string"?obj.selectionRationale.length:-1
+ };
  if(!obj||typeof obj!=="object"||Array.isArray(obj)
    || Object.keys(obj).sort().join("|")!=="directions|negativeRules|selected|selectionRationale"
    || !Array.isArray(obj.directions)||obj.directions.length!==3
-   || !Array.isArray(obj.negativeRules)||obj.negativeRules.length!==3
-   || !obj.negativeRules.every(x=>str(x,4,170))
-   || !str(obj.selectionRationale,40,700)) throw Error("Invalid taste plan structure");
+   || !Array.isArray(obj.negativeRules)||obj.negativeRules.length<1||obj.negativeRules.length>8
+   || !obj.negativeRules.every(x=>str(x,4,500))
+   || !str(obj.selectionRationale,15,2500))
+   throw Error("Invalid taste plan structure: "+JSON.stringify(meta));
  const names=new Set(), metaphors=new Set(), layouts=new Set();
  for(const d of obj.directions){
   if(!d||Object.keys(d).sort().join("|")!=="layout|metaphor|name|palette|productFit|risk|typography"
@@ -42,7 +49,7 @@ export function parseTastePlan(raw) {
   names.add(d.name);metaphors.add(d.metaphor.toLowerCase());layouts.add(d.layout.toLowerCase());
  }
  if(!names.has(obj.selected)) throw Error("Selected taste direction not in candidates");
- return obj;
+ return {...obj,negativeRules:obj.negativeRules.slice(0,5)};
 }
 export async function chooseTastePlan({project,desktop,mobile,model="glm-5.2",provider=vultr,models}){
  if(!project||!desktop||!mobile)throw Error("Need project and real screenshots");
