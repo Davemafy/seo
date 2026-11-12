@@ -71,6 +71,15 @@ export function validateStructuralProposal(proposal,source){
  if(!/aria-expanded/.test(jsx))throw Error("Missing operable FAQ state");
  if(!/className=/.test(jsx))throw Error("No React styling hooks");
  if(!/\.slp-creative\b/.test(css))throw Error("Missing creative root CSS");
+ // A generic .slp-creative a color selector has higher specificity than
+ // a bare .slp-cta-* color selector, making dark CTAs invisible.
+ if(/\.slp-creative\s+a\s*\{[^}]*\bcolor\s*:/s.test(css)){
+  const fragile=[...css.matchAll(/(?:^|})\s*\.(slp-(?:cta|button)[\w-]*)\s*\{([^}]*)\}/gm)]
+   .filter(([,name,body])=>/\bcolor\s*:/.test(body)&&/\bbackground(?:-color)?\s*:/.test(body))
+   .map(m=>m[1])
+   .filter(name=>!new RegExp("\\.slp-creative\\s+(?:a)?\\."+name+"\\s*[,{:]").test(css));
+  if(fragile.length)throw Error("Generic link color overrides primary action: "+fragile.join(", "));
+ }
  if(/@import|@font-face|url\s*\(|expression\s*\(|javascript\s*:|position\s*:\s*fixed/i.test(css))throw Error("Unsafe CSS rule");
  // Preserve the scoped root and prevent global element selectors. More elaborate
  // CSS is validated visually in the browser rather than forcing a template.
