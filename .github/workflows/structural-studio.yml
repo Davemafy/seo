@@ -52,6 +52,7 @@ jobs:
         run: |
           npm ci --ignore-scripts --no-audit --no-fund
           npm test
+          node --check src/engine/creative-verify.mjs
           test -n "$VULTR_INFERENCE_API_KEY" || (echo "::error::Inference credential missing" && exit 1)
           node src/engine/structural-studio.mjs \
             --project source \
