@@ -1,0 +1,208 @@
+name: Sloppertizer — Taste Profile real-site experiment
+on:
+  push:
+    branches: [main]
+    paths:
+      - src/engine/taste-profile.mjs
+      - test/taste-profile.test.mjs
+      - .github/workflows/taste-profile-pilot.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: sloppertizer-taste-profile
+  cancel-in-progress: false
+
+jobs:
+  baseline:
+    name: Capture pinned WorkFlow AI Pro source without inference key
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install engine and run all tests
+        run: npm ci --ignore-scripts --no-audit --no-fund && npm test
+      - name: Pull exactly the MIT-licensed WorkFlow test revision
+        run: |
+          git clone https://github.com/TinyikoMamban/workflowai-pro.git source
+          cd source
+          git checkout --detach 1ab6e6fba96ad6cadec64bfa9132398313b40986
+          test "$(git rev-parse HEAD)" = "1ab6e6fba96ad6cadec64bfa9132398313b40986"
+      - name: Build source without any inference credentials
+        run: |
+          npm ci --prefix source --legacy-peer-deps --ignore-scripts --no-audit --no-fund
+          npm --prefix source run build
+        env:
+          VITE_SUPABASE_URL: https://example.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sloppertizer-test-only
+          VITE_SUPABASE_ANON_KEY: sloppertizer-test-only
+      - name: Capture actual baseline at 1440 and 390 pixels
+        run: |
+          npx playwright install --with-deps chromium
+          npm --prefix source run dev -- --host 127.0.0.1 --port 3171 --strictPort >/tmp/taste-original.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          for i in $(seq 1 45); do curl -fsS http://127.0.0.1:3171/ >/dev/null 2>&1 && break; sleep 1; done
+          node src/engine/capture.mjs --url http://127.0.0.1:3171/ --output baseline
+        env:
+          VITE_SUPABASE_URL: https://example.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sloppertizer-test-only
+          VITE_SUPABASE_ANON_KEY: sloppertizer-test-only
+      - name: Remove executable dependencies before moving source to secret-bearing job
+        if: always()
+        run: rm -rf source/.git source/node_modules source/dist
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: taste-original-source
+          path: source/
+          retention-days: 14
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: taste-original-evidence
+          path: baseline/
+          retention-days: 14
+          if-no-files-found: warn
+
+  generate:
+    name: Explore 3 creative territories, select 1, generate CSS
+    needs: baseline
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/download-artifact@v4
+        with:
+          name: taste-original-source
+          path: source
+      - uses: actions/download-artifact@v4
+        with:
+          name: taste-original-evidence
+          path: baseline
+      - name: Install trusted engine only; do not execute third-party project
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Generate taste-led candidate through pinned Vultr models
+        env:
+          VULTR_INFERENCE_API_KEY: ${{ secrets.VULTR_INFERENCE_API_KEY }}
+        run: |
+          test -n "$VULTR_INFERENCE_API_KEY" || (echo "::error::Inference secret missing" && exit 1)
+          node src/engine/taste-profile.mjs \
+            --project source \
+            --desktop baseline/desktop.png \
+            --mobile baseline/mobile.png \
+            --report baseline/report.json \
+            --model glm-5.2 \
+            --output taste
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: taste-generated-candidate
+          path: taste/
+          retention-days: 14
+          if-no-files-found: warn
+
+  verify:
+    name: Build and compare real desktop/mobile candidate without any key
+    needs: generate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/download-artifact@v4
+        with:
+          name: taste-generated-candidate
+          path: taste
+      - uses: actions/download-artifact@v4
+        with:
+          name: taste-original-evidence
+          path: baseline
+      - name: Build generated application with dummy test credentials
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm ci --prefix taste/candidate --legacy-peer-deps --ignore-scripts --no-audit --no-fund
+          npm --prefix taste/candidate run build
+        env:
+          VITE_SUPABASE_URL: https://example.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sloppertizer-test-only
+          VITE_SUPABASE_ANON_KEY: sloppertizer-test-only
+      - name: Actual Chromium capture and structural/accessibility gate
+        run: |
+          npx playwright install --with-deps chromium
+          npm --prefix taste/candidate run dev -- --host 127.0.0.1 --port 3172 --strictPort >/tmp/taste-candidate.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          for i in $(seq 1 45); do curl -fsS http://127.0.0.1:3172/ >/dev/null 2>&1 && break; sleep 1; done
+          node src/engine/capture.mjs --url http://127.0.0.1:3172/ --output rendered
+          node src/engine/selection.mjs --before baseline/report.json --after rendered/report.json --output rendered/gate.json
+        env:
+          VITE_SUPABASE_URL: https://example.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sloppertizer-test-only
+          VITE_SUPABASE_ANON_KEY: sloppertizer-test-only
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: taste-browser-evidence
+          path: rendered/
+          retention-days: 14
+          if-no-files-found: warn
+
+  jury:
+    name: Independent screenshot jury — never auto-promote
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/download-artifact@v4
+        with:
+          name: taste-original-evidence
+          path: baseline
+      - uses: actions/download-artifact@v4
+        with:
+          name: taste-browser-evidence
+          path: rendered
+      - name: Judge ONLY screenshots, no untrusted source execution
+        env:
+          VULTR_INFERENCE_API_KEY: ${{ secrets.VULTR_INFERENCE_API_KEY }}
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          test -n "$VULTR_INFERENCE_API_KEY" || (echo "::error::Inference secret missing" && exit 1)
+          node src/engine/visual-jury.mjs \
+            --original baseline/desktop.png \
+            --candidate rendered/desktop.png \
+            --mobile rendered/mobile.png \
+            --output taste-jury.json \
+            --model muse-glimmer-30b
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: taste-independent-jury
+          path: taste-jury.json
+          retention-days: 14
+          if-no-files-found: warn
