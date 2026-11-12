@@ -73,3 +73,12 @@ test("allows namespaced structural sections and animation without permitting glo
  escape.files["src/sloppertizer-landing.css"]+="\n@keyframes anyname{from{opacity:0}to{opacity:1}}";
  assert.throws(()=>validateStructuralProposal(escape,original),/keyframes/);
 });
+
+test("detects invisible CTA text from broader anchor rule defeating CTA color",()=>{
+ const p=ok();
+ p.files["src/sloppertizer-landing.css"] += "\n.slp-creative a{color:#111111;}\n.slp-cta-primary{color:#ffffff;background:#111111;}";
+ assert.throws(()=>validateStructuralProposal(p,original),/Generic link color overrides primary action/);
+ const repaired=ok();
+ repaired.files["src/sloppertizer-landing.css"] += "\n.slp-creative a{color:#111111;}\n.slp-creative .slp-cta-primary{color:#ffffff;background:#111111;}";
+ assert.doesNotThrow(()=>validateStructuralProposal(repaired,original));
+});
