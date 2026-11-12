@@ -74,15 +74,18 @@ export function validateStructuralProposal(proposal,source){
  if(/@import|@font-face|url\s*\(|expression\s*\(|javascript\s*:|position\s*:\s*fixed/i.test(css))throw Error("Unsafe CSS rule");
  // Preserve the scoped root and prevent global element selectors. More elaborate
  // CSS is validated visually in the browser rather than forcing a template.
- const stripped=css.replace(/\/\*[\s\S]*?\*\//g,"");
+ let stripped=css.replace(/\/\*[\s\S]*?\*\//g,"");
+ // Scoped keyframe names are legitimate motion, not a reason to reject a design.
+ stripped=stripped.replace(/@keyframes\s+slp-[\w-]+\s*\{(?:[^{}]|\{[^{}]*\})*\}/g,"");
+ if(/@keyframes\b/.test(stripped))throw Error("Unscoped or malformed keyframes");
  const rules=[...stripped.matchAll(/([^{}]+)\{/g)];
  if(!rules.length)throw Error("No CSS rules generated");
  for(const [,untrimmed] of rules){
   const q=untrimmed.trim().replace(/^}\s*/,"").trim();
   if(!q)continue;
   if(q.startsWith("@")){if(!/^@(?:media|supports)(?:\s|\()/.test(q))throw Error("Disallowed CSS at-rule");continue;}
-  if(q.split(",").some(s=>!s.trim().startsWith(".slp-creative")))
-   throw Error("Selector escaped creative root: "+q.slice(0,90));
+  if(q.split(",").some(s=>!s.trim().startsWith(".slp-")))
+   throw Error("Selector escaped Sloppertizer namespace: "+q.slice(0,90));
  }
  return {paths:basic.paths, direction:basic.direction,imports:importPaths,sourcePreservedOutsideLanding:true};
 }
