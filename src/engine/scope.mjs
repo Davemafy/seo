@@ -90,7 +90,7 @@ export function validateCss(css) {
       if(!/^@(?:media|supports)\s/.test(v))throw Error("Unsupported CSS at-rule");
       continue;
     }
-    if(v.split(",").some(s=>!s.trim().startsWith(".slp-engine")))
+    if(v.split(",").some(s=>!/^\.(?:slp-engine\b|dark\s+\.slp-engine\b)/.test(s.trim())))
       throw Error("CSS escaped .slp-engine: "+v.slice(0,100));
   }
   return css;
