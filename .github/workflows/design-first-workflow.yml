@@ -1,0 +1,80 @@
+name: Sloppertizer - design-first WorkFlow pilot
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/design-first-workflow.yml
+      - pilots/workflow-design-first/**
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: sloppertizer-design-first-workflow
+  cancel-in-progress: false
+jobs:
+  verify:
+    name: Build real WorkFlow app, test desktop/mobile and capture screenshots
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: TinyikoMamban/workflowai-pro
+          ref: 1ab6e6fba96ad6cadec64bfa9132398313b40986
+          path: original
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Apply pilot to landing route only
+        run: |
+          cp pilots/workflow-design-first/index.tsx original/src/routes/index.tsx
+          cp pilots/workflow-design-first/sloppertizer-pilot.css original/src/routes/sloppertizer-pilot.css
+          git -C original diff --name-only | grep -Fx src/routes/index.tsx
+      - name: Install tooling and pinned source without credentials
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm ci --prefix original --legacy-peer-deps --ignore-scripts --no-audit --no-fund
+          npx playwright install chromium --only-shell
+      - name: Compile unchanged app routes alongside redesigned landing
+        env:
+          VITE_SUPABASE_URL: https://example.invalid
+          VITE_SUPABASE_PUBLISHABLE_KEY: demo-publishable-only
+          SUPABASE_URL: https://example.invalid
+          SUPABASE_PUBLISHABLE_KEY: demo-publishable-only
+        run: npm --prefix original run build
+      - name: Browser interaction and accessibility evidence
+        env:
+          VITE_SUPABASE_URL: https://example.invalid
+          VITE_SUPABASE_PUBLISHABLE_KEY: demo-publishable-only
+          SUPABASE_URL: https://example.invalid
+          SUPABASE_PUBLISHABLE_KEY: demo-publishable-only
+        run: |
+          npm --prefix original run dev -- --host 127.0.0.1 --port 3202 --strictPort >/tmp/workflow-pilot.log 2>&1 &
+          for i in $(seq 1 50); do curl -fsS http://127.0.0.1:3202/ >/dev/null 2>&1 && break; sleep 1; done
+          mkdir -p pilot-proof
+          node pilots/workflow-design-first/browser-check.mjs http://127.0.0.1:3202/ pilot-proof
+          node src/engine/capture.mjs --url http://127.0.0.1:3202/ --output pilot-proof/audit
+      - name: Fail on broken visuals, WCAG contrast and runtime errors
+        run: |
+          node --input-type=module - <<'JS'
+          import fs from 'node:fs';
+          const r=JSON.parse(fs.readFileSync('pilot-proof/audit/report.json'));
+          for(const view of ['desktop','mobile']){
+            const x=r[view];
+            console.log(view,JSON.stringify({status:x.status,overflow:x.horizontalOverflow,errors:x.errors,broken:x.brokenImages,collisions:x.textCollisions,contrast:x.accessibility?.contrastFailures,axeVerified:x.accessibility?.verified}));
+            if(x.status!==200||x.horizontalOverflow||x.errors.length||x.brokenImages.length||x.textCollisions.length||!x.accessibility?.verified||x.accessibility.contrastFailures>0)process.exitCode=1;
+          }
+          JS
+      - name: Save actual screenshots and full quality evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: workflow-design-first-proof
+          path: pilot-proof/
+          retention-days: 14
+          if-no-files-found: warn
