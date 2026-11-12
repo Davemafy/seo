@@ -1,0 +1,151 @@
+name: Sloppertizer - keyless verification of cached two-site model compositions
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/story-model-verify-only.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: sloppertizer-two-site-model-verify-only
+  cancel-in-progress: false
+jobs:
+  verify:
+    name: Build and browse - ${{ matrix.site }} / ${{ matrix.model }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {site: cactus, model: mimo-v2.6-pro, baseline: editorial-rail, cards: 4, tone: day}
+          - {site: cactus, model: minimax-m3.1-flash, baseline: editorial-rail, cards: 4, tone: day}
+          - {site: cactus, model: glm-5.2, baseline: editorial-rail, cards: 4, tone: day}
+          - {site: workflow, model: mimo-v2.6-pro, baseline: product-casebook, cards: 6, tone: night}
+          - {site: workflow, model: glm-5.2, baseline: product-casebook, cards: 6, tone: night}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/download-artifact@v4
+        with:
+          name: directed-${{ matrix.site }}-${{ matrix.model }}
+          run-id: 43250739608
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: directed
+      - uses: actions/download-artifact@v4
+        with:
+          name: story-${{ matrix.site }}-${{ matrix.baseline }}
+          run-id: 43074902933
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: source-evidence
+      - name: Install keyless browser and testing toolchain
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx playwright install chromium --only-shell
+      - name: Compile model-directed React app without inference credentials
+        id: compile
+        continue-on-error: true
+        env:
+          VITE_SUPABASE_URL: https://example.invalid
+          VITE_SUPABASE_PUBLISHABLE_KEY: demo-publishable-only
+          SUPABASE_URL: https://example.invalid
+          SUPABASE_PUBLISHABLE_KEY: demo-publishable-only
+        run: |
+          test -f directed/candidate/package.json || exit 1
+          npm ci --prefix directed/candidate --legacy-peer-deps --ignore-scripts --no-audit --no-fund
+          npm --prefix directed/candidate run build
+      - name: Capture source behavior, responsive layout, runtime, contrast and controls
+        if: steps.compile.outcome == 'success'
+        env:
+          VITE_SUPABASE_URL: https://example.invalid
+          VITE_SUPABASE_PUBLISHABLE_KEY: demo-publishable-only
+          SUPABASE_URL: https://example.invalid
+          SUPABASE_PUBLISHABLE_KEY: demo-publishable-only
+        run: |
+          npm --prefix directed/candidate run dev -- --host 127.0.0.1 --port 3202 --strictPort >/tmp/director-model.log 2>&1 &
+          for i in $(seq 1 50); do curl -fsS http://127.0.0.1:3202/ >/dev/null 2>&1 && break; sleep 1; done
+          mkdir -p proof
+          node test/story-browser.mjs http://127.0.0.1:3202/ ${{ matrix.cards }} ${{ matrix.tone }} >proof/interaction.log 2>&1 || echo "Interaction test failed (see log)" >>proof/interaction.log
+          node src/engine/capture.mjs --url http://127.0.0.1:3202/ --output proof/rendered || echo "Capture returned a quality warning"
+          if test -f proof/rendered/report.json; then
+            node src/engine/story-compatibility.mjs --before source-evidence/evidence/baseline/report.json --after proof/rendered/report.json --output proof/compatibility.json || true
+          fi
+      - name: Copy model receipt into proof
+        if: always()
+        run: |
+          mkdir -p proof
+          if test -f directed/directed-receipt.json; then cp directed/directed-receipt.json proof/receipt.json; fi
+          echo '{"compile":"${{ matrix.model }}","result":"${{ matrix.site }}","status":"${{ steps.compile.outcome }}"}' >proof/build-summary.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: directed-proof-${{ matrix.site }}-${{ matrix.model }}
+          path: proof/
+          retention-days: 10
+          if-no-files-found: warn
+  judge:
+    name: Independent visual judgment - ${{ matrix.site }} / ${{ matrix.model }}
+    needs: verify
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {site: cactus, model: mimo-v2.6-pro, baseline: editorial-rail}
+          - {site: cactus, model: minimax-m3.1-flash, baseline: editorial-rail}
+          - {site: cactus, model: glm-5.2, baseline: editorial-rail}
+          - {site: workflow, model: mimo-v2.6-pro, baseline: product-casebook}
+          - {site: workflow, model: glm-5.2, baseline: product-casebook}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/download-artifact@v4
+        with:
+          name: directed-proof-${{ matrix.site }}-${{ matrix.model }}
+          path: proof
+      - uses: actions/download-artifact@v4
+        with:
+          name: story-${{ matrix.site }}-${{ matrix.baseline }}
+          run-id: 43074902933
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: source-evidence
+      - name: Independent Muse verdict on actual model-specific screenshots
+        env:
+          VULTR_INFERENCE_API_KEY: ${{ secrets.VULTR_INFERENCE_API_KEY }}
+          SLOPPERTIZER_VISION_MODEL: muse-glimmer-30b
+        run: |
+          mkdir -p review
+          if test -f proof/rendered/mobile.png && test -f proof/rendered/desktop.png; then
+            npm ci --ignore-scripts --no-audit --no-fund
+            node src/engine/visual-jury.mjs \
+              --original source-evidence/evidence/baseline/desktop.png \
+              --candidate proof/rendered/desktop.png \
+              --mobile proof/rendered/mobile.png \
+              --output review/jury.json
+          else
+            printf '%s\n' '{"status":"not-judged","reason":"rendered screens absent"}' >review/jury.json
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: directed-jury-${{ matrix.site }}-${{ matrix.model }}
+          path: review/
+          retention-days: 10
+          if-no-files-found: warn
