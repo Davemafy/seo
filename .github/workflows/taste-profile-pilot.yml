@@ -5,6 +5,8 @@ on:
     paths:
       - src/engine/taste-profile.mjs
       - test/taste-profile.test.mjs
+      - src/engine/scope.mjs
+      - test/scope-root-div.test.mjs
       - .github/workflows/taste-profile-pilot.yml
   workflow_dispatch:
 permissions:
@@ -158,7 +160,7 @@ jobs:
       - name: Structural and accessibility quality gate (keeps rejection evidence)
         id: gate
         continue-on-error: true
-        run: node src/engine/selection.mjs --before baseline/report.json --after rendered/report.json --output rendered/gate.json
+        run: node src/engine/story-compatibility.mjs --before baseline/report.json --after rendered/report.json --output rendered/gate.json
         env:
           VITE_SUPABASE_URL: https://example.supabase.co
           VITE_SUPABASE_PUBLISHABLE_KEY: sloppertizer-test-only
