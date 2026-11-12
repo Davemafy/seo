@@ -38,7 +38,7 @@ test("dark-theme ancestor may style ONLY the existing scoped subtree",()=>{
   ".dark .slp-engine, .slp-engine.dark { background: #101319; color: #eee; }",
   ".dark .slp-engine h1 { font-size:48px; }",
   ".slp-engine button { background: #891d20; }"
- ].join("\n");
+ ].join("\n").repeat(3);
  assert.equal(validateCss(css),css);
  assert.throws(()=>validateCss(css+"\n.dark button { color: red; }"),/escaped/);
  assert.throws(()=>validateCss(css+"\nbody { color: red; }"),/escaped/);
