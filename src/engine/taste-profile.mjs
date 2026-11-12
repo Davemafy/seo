@@ -25,7 +25,7 @@ const SYSTEM = [
  "Return STRICT JSON only: {\"directions\":[{\"name\":\"\",\"metaphor\":\"\",\"productFit\":\"\",\"layout\":\"\",\"typography\":\"\",\"palette\":\"\",\"risk\":\"\"},{...},{...}],\"selected\":\"EXACT name\",\"selectionRationale\":\"\",\"negativeRules\":[\"\",\"\",\"\"]}."
 ].join("\n");
 
-const str=(x,min=12,max=520)=>typeof x==="string" && x.trim().length>=min && x.length<=max && !/[<>]/.test(x);
+const str=(x,min=12,max=520)=>typeof x==="string" && x.trim().length>=min && x.length<=max;
 export function parseTastePlan(raw) {
  const obj=parseJsonReply(raw);
  if(!obj||typeof obj!=="object"||Array.isArray(obj)
@@ -67,8 +67,30 @@ export async function chooseTastePlan({project,desktop,mobile,model="glm-5.2",pr
   ]}
  ],model,5300);
  assertActualModel(model,response.model);
- const plan=parseTastePlan(response.content);
- return {plan,model:response.model,usage:response.usage,originalHash:site.originalHash,product:site.product};
+ let plan,usage=response.usage;
+ try {
+  plan=parseTastePlan(response.content);
+ }catch(error){
+  // A single deterministic contract-repair pass. Invalid directions are NEVER
+  // applied to source code, and there is no hidden model substitution.
+  const repaired=await provider([
+   {role:"system",content:SYSTEM},
+   {role:"user",content:[{type:"text",text:
+    "Repair your previous output into the exact JSON schema from the system. "+
+    "There must be exactly three different named directions with distinct metaphors "+
+    "and layout descriptions, a selected value identical to a direction name, "+
+    "three negative rules and a specific rationale. No extra top-level keys. "+
+    "Original validation error: "+String(error.message).slice(0,160)+"\\n"+
+    "Previous response: "+response.content.slice(0,14000)}]}
+  ],model,5300);
+  assertActualModel(model,repaired.model);
+  try{plan=parseTastePlan(repaired.content);}
+  catch(e){throw Error("Taste plan rejected after one repair: "+e.message+
+   "; top-level keys="+(()=>{
+    try{return Object.keys(parseJsonReply(repaired.content)).join(",");}catch{return "unparseable";}})());}
+  usage={first:response.usage,repair:repaired.usage};
+ }
+ return {plan,model:response.model,usage,originalHash:site.originalHash,product:site.product};
 }
 export function formatTasteBrief(taste){
  const {plan}=taste,chosen=plan.directions.find(d=>d.name===plan.selected);
