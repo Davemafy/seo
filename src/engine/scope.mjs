@@ -17,7 +17,7 @@ export function addScope(page, entry) {
   // source-preserved story wrapper created by our AST compositor as CSS root.
   if(!match){
     const authorized=page.includes('import "./sloppertizer.story.css";');
-    const wraps=[...page.matchAll(/<div\s+className=(["'])([^"'<>]*\bslp-story\b[^"'<>]*)\1\s*>/g)];
+    const wraps=[...page.matchAll(/<div\s+className=(["'])([^"'<>]*\bslp-story\b[^"'<>]*)\1\s+data-slp-story=(["'])source-preserved\3\s*>/g)];
     if(!authorized||wraps.length!==1)throw Error("Need exactly one <main> root or one verified story wrapper; refusing ambiguous edits");
     match={0:wraps[0][0],1:" className="+wraps[0][1]+wraps[0][2]+wraps[0][1],index:wraps[0].index};
   }

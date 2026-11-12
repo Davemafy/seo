@@ -76,7 +76,7 @@ test("verified React story wrapper can be CSS-scoped when site has no main tag",
  const original=[
   'import React from "react";',
   'import "./sloppertizer.story.css";',
-  'export default function App(){return <div className="slp-story slp-story--product-casebook"><h2>Features</h2></div>}'
+  'export default function App(){return <div className="slp-story slp-story--product-casebook" data-slp-story="source-preserved"><h2>Features</h2></div>}'
  ].join("\n");
  const result=addScope(original,"src/routes/index.tsx");
  assert(result.source.includes('className="slp-story slp-story--product-casebook slp-engine"'));
