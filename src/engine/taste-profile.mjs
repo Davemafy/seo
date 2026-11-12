@@ -140,7 +140,8 @@ export async function tasteRedesign({project,desktop,mobile,report,output,model=
  const brief=join(dest,"creative-brief.txt");
  writeFileSync(brief,formatTasteBrief(taste)+"\n");
  const candidate=join(dest,"candidate");
- const result=await designer({project,desktop,mobile,report,feedback:brief,output:candidate,model,provider});
+ const result=await designer({project,desktop,mobile,report,feedback:brief,output:candidate,model,provider,
+  captureResponse: text=>writeFileSync(join(dest,"raw-model-css.txt"),String(text).slice(0,90000)+"\n")});
  if(result.sourceHash!==taste.originalHash)throw Error("Source changed during generation");
  const receipt={status:"UNVERIFIED — browser and independent visual review required",product:taste.product,
   selected:taste.plan.selected,choices:taste.plan.directions.map(d=>d.name),
