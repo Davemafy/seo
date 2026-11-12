@@ -28,6 +28,9 @@ const PLAN_SYSTEM=[
 
 export function parseModelStoryPlan(raw){
   const plan=parseJsonReply(raw);
+  if(plan && typeof plan.reason==="string" && plan.reason.length>200){
+    plan.reason=plan.reason.slice(0,200);
+  }
   return validateStoryPlan(plan);
 }
 export async function chooseStoryPlan({project,desktop,mobile,model,provider=vultr,models}){

@@ -4,6 +4,8 @@ on:
     branches: [main]
     paths:
       - .github/workflows/story-model-benchmark.yml
+      - src/engine/story-director.mjs
+      - test/story-director.test.mjs
   workflow_dispatch:
 permissions:
   contents: read

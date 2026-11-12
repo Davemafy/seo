@@ -15,3 +15,10 @@ test("fails closed on missing or incomplete output",()=>{
  assert.throws(()=>parseModelStoryPlan("Try editorial-rail"),/JSON/);
  assert.throws(()=>parseModelStoryPlan('{"layout":"product-casebook",'),/JSON/);
 });
+
+test("trims only verbose reasoning while retaining strict layout validation",()=>{
+ const x=parseModelStoryPlan(JSON.stringify({layout:"feature-mosaic",reason:"Source-directed analysis. ".repeat(20)}));
+ assert.equal(x.layout,"feature-mosaic");
+ assert.equal(x.reason.length,200);
+ assert.throws(()=>parseModelStoryPlan(JSON.stringify({layout:"arbitrary",reason:"a".repeat(280)})),/Invalid composition/);
+});
