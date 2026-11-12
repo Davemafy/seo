@@ -80,7 +80,7 @@ export function validateStructuralProposal(proposal,source){
  for(const [,untrimmed] of rules){
   const q=untrimmed.trim().replace(/^}\s*/,"").trim();
   if(!q)continue;
-  if(q.startsWith("@")){if(!/^@(?:media|supports)\s/.test(q))throw Error("Disallowed CSS at-rule");continue;}
+  if(q.startsWith("@")){if(!/^@(?:media|supports)(?:\s|\()/.test(q))throw Error("Disallowed CSS at-rule");continue;}
   if(q.split(",").some(s=>!s.trim().startsWith(".slp-creative")))
    throw Error("Selector escaped creative root: "+q.slice(0,90));
  }
