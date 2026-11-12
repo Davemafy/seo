@@ -112,7 +112,7 @@ export async function structuralRedesign({project,desktop,mobile,concept,output,
  if(existsSync(target)||target===site.root||target.startsWith(site.root+sep)||site.root.startsWith(target+sep))
    throw Error("Output must be new and disjoint from original");
  const models=modelList||await catalog();
- selectModel(models,model,{vision:true});
+ const selectedModel=selectModel(models,model,{vision:true});
  mkdirSync(target,{recursive:true});
  const conceptData=concept?readFileSync(resolve(concept),"utf8").slice(0,14000):"Explore multiple territories privately, select the strongest honest concept.";
  const context={
@@ -133,6 +133,15 @@ export async function structuralRedesign({project,desktop,mobile,concept,output,
  ],model,17000);
  assertActualModel(model,response.model);
  writeFileSync(join(target,"raw-structural-response.txt"),response.content);
+ const promptTokens=response.usage?.prompt_tokens, completionTokens=response.usage?.completion_tokens;
+ const estimatedModelUsd=Number.isFinite(promptTokens)&&Number.isFinite(completionTokens)
+   &&Number.isFinite(selectedModel.inputUsdPerMillion)&&Number.isFinite(selectedModel.outputUsdPerMillion)
+   ?(promptTokens*selectedModel.inputUsdPerMillion+completionTokens*selectedModel.outputUsdPerMillion)/1e6:null;
+ writeFileSync(join(target,"inference-receipt.json"),JSON.stringify({
+  expectedModel:model,actualModel:response.model,usage:response.usage,
+  estimatedModelUsd,estimateExcludes:"browser compute, storage, images and other external services",
+  outputSha256:sha256(response.content),status:"RETAINED BEFORE VALIDATION"
+ },null,2)+"\n");
  const proposal=parseTaggedReply(response.content);
  proposal.files[landingPath]=normalizeKnownImports(proposal.files[landingPath]);
  const verdict=validateStructuralProposal(proposal,site.sources.page);
