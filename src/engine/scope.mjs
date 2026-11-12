@@ -11,8 +11,16 @@ export function addScope(page, entry) {
   }
   // Match root <main> without touching handlers, attributes, or children. Never guess for other root structures.
   const tag=/<main\b([^>]*)>/g;
-  const match=tag.exec(page);
-  if(!match || tag.exec(page))throw Error("Need exactly one <main> root; refusing ambiguous edits");
+  let match=tag.exec(page);
+  if(tag.exec(page))throw Error("Need exactly one <main> root; refusing ambiguous edits");
+  // Some verified TanStack landing pages have no <main>. Allow ONLY the exact
+  // source-preserved story wrapper created by our AST compositor as CSS root.
+  if(!match){
+    const authorized=page.includes('import "./sloppertizer.story.css";');
+    const wraps=[...page.matchAll(/<div\s+className=(["'])([^"'<>]*\bslp-story\b[^"'<>]*)\1\s*>/g)];
+    if(!authorized||wraps.length!==1)throw Error("Need exactly one <main> root or one verified story wrapper; refusing ambiguous edits");
+    match={0:wraps[0][0],1:" className="+wraps[0][1]+wraps[0][2]+wraps[0][1],index:wraps[0].index};
+  }
   const attributes=match[1];
   if(/\{\s*\.\.\.|className\s*=\s*\{/.test(attributes))throw Error("Dynamic root props unsupported; preserving original");
   let updated;

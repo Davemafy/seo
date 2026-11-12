@@ -71,3 +71,11 @@ test("compares browser quality and preserves original links/buttons",()=>{
  assert.match(compareBrowser(b,c).problems.join(" "),/link missing/);
  assert.equal(compareBrowser(b,b).status,"structural-pass");
 });
+
+test("verified React story wrapper can be CSS-scoped when site has no main tag",()=>{
+ const original='import React from "react";\\nimport "./sloppertizer.story.css";\\nexport default function App(){return <div className="slp-story slp-story--product-casebook"><h2>Features</h2></div>}\\n'.replaceAll('\\\\n','\\n');
+ const result=addScope(original,"src/routes/index.tsx");
+ assert(result.source.includes('className="slp-story slp-story--product-casebook slp-engine"'));
+ assert(unchangedOutsideScope(original,result.source));
+ assert.throws(()=>addScope(original.replace('import "./sloppertizer.story.css";',''),"src/routes/index.tsx"),/verified story wrapper/);
+});

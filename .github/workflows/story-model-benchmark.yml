@@ -6,6 +6,8 @@ on:
       - .github/workflows/story-model-benchmark.yml
       - src/engine/story-director.mjs
       - test/story-director.test.mjs
+      - src/engine/scope.mjs
+      - test/portable-engine.test.mjs
   workflow_dispatch:
 permissions:
   contents: read
