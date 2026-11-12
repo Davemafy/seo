@@ -277,3 +277,39 @@
 @media (prefers-reduced-motion: reduce) {
   .wf-pilot :where(a, button) { transition: none !important; }
 }
+
+/* Browser-measured readability pass: small interface labels require real
+   WCAG AA contrast at their final background, not decorative pastel text. */
+.wf-hero-proof { color: #43594b; }
+.wf-window-sidebar-label { color: #405648; font-size: 10px; }
+.wf-sidebar-item { color: #465b4e; font-size: 11px; }
+.wf-sidebar-foot { color: #465e4d; font-size: 10px; }
+.wf-crumb { color: #4e6155; }
+.wf-window-topbar { font-size: 11px; }
+.wf-topbar-context { color: #506155; font-size: 10px; }
+.wf-demo-tab { color: #4c5f53; font-size: 11px; }
+.wf-demo-kicker { color: #45644f; font-size: 10px; }
+.wf-demo-description { color: #52665a; font-size: 12px; }
+.wf-demo-field { color: #22392c; font-size: 12px; }
+.wf-demo-field-label { color: #465c50; font-size: 10px; }
+.wf-demo-output-top { font-size: 11px; }
+.wf-demo-output-top>span:last-child { color: #4f6154; }
+.wf-outline-row { font-size: 11px; color: #3c5548; }
+.wf-outline-index { color: #4b6051; font-size: 10px; }
+.wf-window-bottom { color: #4c6152; font-size: 10px; }
+.wf-ticker-tags span { color: #405d49; }
+.wf-section-topline { color: #415c4c; }
+.wf-feature-index { color: #465f4d; }
+.wf-feature-type { color: #3c634b; font-size: 11px; }
+.wf-feature-content p { color: #4b5e51; font-size: 14px; }
+.wf-final-inner>div>span { color: #3d5947; }
+.wf-footer-inner>span { color: #4a6050; }
+.wf-footer-note { color: #49604f; }
+@media (max-width: 620px) {
+  .wf-demo-tab { font-size: 10px; }
+  .wf-demo-description { font-size: 12px; }
+  .wf-demo-field { font-size: 11px; }
+  .wf-demo-field-label { font-size: 9px; }
+  .wf-window-bottom { font-size: 9px; }
+  .wf-feature-content p { font-size: 14px; }
+}
