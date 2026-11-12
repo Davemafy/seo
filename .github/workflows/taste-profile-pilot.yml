@@ -49,7 +49,8 @@ jobs:
           pid=$!
           trap 'kill "$pid" 2>/dev/null || true' EXIT
           for i in $(seq 1 45); do curl -fsS http://127.0.0.1:3171/ >/dev/null 2>&1 && break; sleep 1; done
-          node src/engine/capture.mjs --url http://127.0.0.1:3171/ --output baseline
+          node src/engine/capture.mjs --url http://127.0.0.1:3171/ --output baseline || true
+          node --input-type=module -e 'import {readFileSync,existsSync} from "node:fs"; const r=JSON.parse(readFileSync("baseline/report.json","utf8")); for(const v of ["desktop","mobile"]){const x=r[v];if(!x||x.status!==200||x.errors.length||x.horizontalOverflow||!existsSync("baseline/"+v+".png"))throw Error("Capture failed "+v); if(x.brokenImages.length)console.log("::warning::Source asset unavailable in "+v+": "+x.brokenImages.length)}'
         env:
           VITE_SUPABASE_URL: https://example.supabase.co
           VITE_SUPABASE_PUBLISHABLE_KEY: sloppertizer-test-only
@@ -152,8 +153,12 @@ jobs:
           pid=$!
           trap 'kill "$pid" 2>/dev/null || true' EXIT
           for i in $(seq 1 45); do curl -fsS http://127.0.0.1:3172/ >/dev/null 2>&1 && break; sleep 1; done
-          node src/engine/capture.mjs --url http://127.0.0.1:3172/ --output rendered
-          node src/engine/selection.mjs --before baseline/report.json --after rendered/report.json --output rendered/gate.json
+          node src/engine/capture.mjs --url http://127.0.0.1:3172/ --output rendered || true
+          node --input-type=module -e 'import {readFileSync,existsSync} from "node:fs"; const r=JSON.parse(readFileSync("rendered/report.json","utf8")); for(const v of ["desktop","mobile"]){const x=r[v];if(!x||x.status!==200||x.errors.length||x.horizontalOverflow||!existsSync("rendered/"+v+".png"))throw Error("Capture failed "+v); if(x.brokenImages.length)console.log("::warning::Source asset unavailable in "+v+": "+x.brokenImages.length)}'
+      - name: Structural and accessibility quality gate (keeps rejection evidence)
+        id: gate
+        continue-on-error: true
+        run: node src/engine/selection.mjs --before baseline/report.json --after rendered/report.json --output rendered/gate.json
         env:
           VITE_SUPABASE_URL: https://example.supabase.co
           VITE_SUPABASE_PUBLISHABLE_KEY: sloppertizer-test-only
