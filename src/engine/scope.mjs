@@ -78,7 +78,10 @@ export function validateCss(css) {
   if(/@import|@font-face|url\s*\(|expression\s*\(|behavior\s*:|position\s*:\s*fixed|javascript\s*:/i.test(css))
     throw Error("Unsafe CSS or external asset dependency");
   // Generated CSS may not create visible marketing text, fake badges or misleading CTA labels.
-  if(/\bcontent\s*:\s*(["'])(?:(?!\1)[^"'\n])+\1/i.test(css))throw Error("Generated CSS contains non-empty pseudo-element copy");
+  // Permit only decorative quotation glyphs; prohibit invented pseudo-element copy.
+  const typographic=css.replace(/\bcontent\s*:\s*(["'])\s*(?:\\201[cCdD]|[“”])\s*\1\s*;/g,'content: "";');
+  if(/\bcontent\s*:\s*(["'])(?:(?!\1)[^"'\n])+\1/i.test(typographic))
+    throw Error("Generated CSS contains non-empty pseudo-element copy");
   // Verify each selector, including grouped selectors; at-rules may wrap selectors but cannot escape scope.
   const stripped=css.replace(/\/\*[\s\S]*?\*\//g,"");
   const openers=[...stripped.matchAll(/([^{}]+)\{/g)];
