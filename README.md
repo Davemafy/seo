@@ -19,6 +19,10 @@ Read [the exact independent results and failures](docs/portable-engine-results.m
 
 Run `npm test` to execute guardrail tests. Configure `VULTR_INFERENCE_API_KEY` only as an Actions secret; never commit or paste it. No generated candidate is auto-deployed.
 
+## Model-directed React benchmark (12 November 2026)
+
+MiMo V2.6 Pro, MiniMax M3.1 Flash and GLM-5.2 were tested across Cactus and WorkFlow AI Pro with source-preserving React composition plus CSS. **None passed every design/accessibility gate.** The current defaults remain unchanged. [Read the two-site results](docs/model-benchmark-2026-11-12-composition.md).
+
 ## Model roles (benchmarked 11 November 2026)
 
 The **design generator remains GLM-5.2**. The independent default screenshot jury is **Muse Glimmer 30B**. Both roles are overrideable with `SLOPPERTIZER_DESIGN_MODEL` and `SLOPPERTIZER_VISION_MODEL`. No model candidate from the Cactus A/B test met the full premium output bar; do not auto-publish or claim a visual win based only on the model name.
