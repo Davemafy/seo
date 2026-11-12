@@ -53,7 +53,7 @@ test("refuses network/browser escape and unauthorized dependencies",()=>{
 test("rejects missing actual routes, capability or root and CSS global scope",()=>{
  for(const replaced of [
   landing.replace('to="/auth"','to="/login"'),
-  landing.replace('a prompt library','a library'),
+  landing.replace(/\bprompt\b/gi,'template'),
   landing.replace('className="slp-creative"','className="ordinary"')
  ]){
   const p=ok();p.files["src/routes/index.tsx"]=replaced;
