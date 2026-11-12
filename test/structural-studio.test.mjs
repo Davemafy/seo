@@ -64,3 +64,12 @@ test("rejects missing actual routes, capability or root and CSS global scope",()
   assert.throws(()=>validateStructuralProposal(p,original));
  }
 });
+
+test("allows namespaced structural sections and animation without permitting globals",()=>{
+ const p=ok();
+ p.files["src/sloppertizer-landing.css"] += "\n.slp-masthead{border-bottom:1px solid #333;}\n@keyframes slp-note-open{from{opacity:0}to{opacity:1}}\n.slp-creative .slp-masthead{animation:slp-note-open .3s ease;}";
+ assert.doesNotThrow(()=>validateStructuralProposal(p,original));
+ const escape=ok();
+ escape.files["src/sloppertizer-landing.css"]+="\n@keyframes anyname{from{opacity:0}to{opacity:1}}";
+ assert.throws(()=>validateStructuralProposal(escape,original),/keyframes/);
+});
