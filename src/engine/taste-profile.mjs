@@ -41,17 +41,25 @@ export function parseTastePlan(raw) {
    || !obj.negativeRules.every(x=>str(x,4,500))
    || !str(obj.selectionRationale,15,2500))
    throw Error("Invalid taste plan structure: "+JSON.stringify(meta));
- const names=new Set(), metaphors=new Set(), layouts=new Set();
+ const names=new Set(), metaphors=new Set(), layouts=new Set(),directions=[];
+ const keys=["name","metaphor","productFit","layout","typography","palette","risk"];
  for(const d of obj.directions){
-  if(!d||Object.keys(d).sort().join("|")!=="layout|metaphor|name|palette|productFit|risk|typography"
-    || !["name","metaphor","productFit","layout","typography","palette","risk"].every(k=>str(d[k],k==="name"?4:12,k==="name"?64:500))) throw Error("Invalid taste direction");
-  if(names.has(d.name)||metaphors.has(d.metaphor.toLowerCase())||layouts.has(d.layout.toLowerCase()))throw Error("Taste directions not distinct");
-  names.add(d.name);metaphors.add(d.metaphor.toLowerCase());layouts.add(d.layout.toLowerCase());
+  if(!d||typeof d!=="object"||!keys.every(k=>str(d[k],k==="name"?3:5,k==="name"?100:1400)))
+   throw Error("Invalid taste direction: "+JSON.stringify({
+    presentKeys:d&&typeof d==="object"?Object.keys(d):[],
+    lengths:Object.fromEntries(keys.map(k=>[k,typeof d?.[k]==="string"?d[k].length:-1]))
+   }));
+  const item=Object.fromEntries(keys.map(k=>[k,d[k].trim()]));
+  if(names.has(item.name.toLowerCase())||metaphors.has(item.metaphor.toLowerCase())||layouts.has(item.layout.toLowerCase()))
+   throw Error("Taste directions not distinct");
+  names.add(item.name.toLowerCase());metaphors.add(item.metaphor.toLowerCase());layouts.add(item.layout.toLowerCase());
+  directions.push(item);
  }
- if(!names.has(obj.selected)) throw Error("Selected taste direction not in candidates");
- return {...obj,negativeRules:obj.negativeRules.slice(0,5)};
+ const selected=directions.find(d=>d.name.toLowerCase()===String(obj.selected).trim().toLowerCase())?.name;
+ if(!selected) throw Error("Selected taste direction not in candidates: "+String(obj.selected).slice(0,120));
+ return {directions,selected,selectionRationale:obj.selectionRationale.trim(),negativeRules:obj.negativeRules.slice(0,5)};
 }
-export async function chooseTastePlan({project,desktop,mobile,model="glm-5.2",provider=vultr,models}){
+export async function chooseTastePlan({project,desktop,mobile,model="glm-5.2",provider=vultr,models,debugPath}){
  if(!project||!desktop||!mobile)throw Error("Need project and real screenshots");
  const available=models||await catalog();
  selectModel(available,model,{vision:true});
@@ -74,6 +82,7 @@ export async function chooseTastePlan({project,desktop,mobile,model="glm-5.2",pr
   ]}
  ],model,5300);
  assertActualModel(model,response.model);
+ if(debugPath)writeFileSync(debugPath,response.content.slice(0,64000)+"\n");
  let plan,usage=response.usage;
  try {
   plan=parseTastePlan(response.content);
@@ -91,6 +100,7 @@ export async function chooseTastePlan({project,desktop,mobile,model="glm-5.2",pr
     "Previous response: "+response.content.slice(0,14000)}]}
   ],model,5300);
   assertActualModel(model,repaired.model);
+  if(debugPath)writeFileSync(debugPath+".repair",repaired.content.slice(0,64000)+"\n");
   try{plan=parseTastePlan(repaired.content);}
   catch(e){throw Error("Taste plan rejected after one repair: "+e.message+
    "; top-level keys="+(()=>{
@@ -122,9 +132,10 @@ export async function tasteRedesign({project,desktop,mobile,report,output,model=
  const source=discover(project),dest=resolve(output);
  if(existsSync(dest)||dest===source.root||dest.startsWith(source.root+sep)||source.root.startsWith(dest+sep))
   throw Error("Unsafe or existing output directory");
- const taste=await chooseTastePlan({project,desktop,mobile,model,provider,models});
- if(discover(project).originalHash!==taste.originalHash)throw Error("Source changed during art direction");
  mkdirSync(dest,{recursive:true});
+ const taste=await chooseTastePlan({project,desktop,mobile,model,provider,models,
+  debugPath:join(dest,"raw-model-plan.txt")});
+ if(discover(project).originalHash!==taste.originalHash)throw Error("Source changed during art direction");
  writeFileSync(join(dest,"taste-profile.json"),JSON.stringify(taste,null,2)+"\n");
  const brief=join(dest,"creative-brief.txt");
  writeFileSync(brief,formatTasteBrief(taste)+"\n");
