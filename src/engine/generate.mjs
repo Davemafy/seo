@@ -52,7 +52,7 @@ function cleanCopy(from,to) {
     return !lstatSync(p).isSymbolicLink();
   }});
 }
-export async function generate({project,output,desktop,mobile,report,feedback,model=process.env.SLOPPERTIZER_DESIGN_MODEL||"glm-5.2",provider=vultr}) {
+export async function generate({project,output,desktop,mobile,report,feedback,captureResponse,model=process.env.SLOPPERTIZER_DESIGN_MODEL||"glm-5.2",provider=vultr}) {
   const site=discover(project),target=resolve(output);
   if(existsSync(target)||target===site.root||target.startsWith(site.root+sep)||site.root.startsWith(target+sep))
     throw Error("Refuse output inside source or overwrite");
@@ -76,6 +76,7 @@ export async function generate({project,output,desktop,mobile,report,feedback,mo
   if(mobile){pieces.push({type:"text",text:"REAL 390px MOBILE SCREENSHOT: ensure strong responsive layout and usable navigation."});pieces.push(readImage(mobile));}
   const response=await provider([{role:"system",content:SYSTEM},{role:"user",content:pieces}],model,11000);
   assertActualModel(model,response.model);
+  if(typeof captureResponse==="function")captureResponse(response.content);
   const draft=parseDesign(response.content);
   cleanCopy(site.root,target);
   mkdirSync(resolve(target,dirname(site.entry)),{recursive:true});
