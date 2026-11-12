@@ -23,3 +23,29 @@ Warm-paper editorial layout, deep forest workbench, spare type, concrete content
 Successful TanStack app build, original /auth and /responsible-ai links, six feature descriptions, interactive preview tabs with keyboard navigation, mobile navigation, FAQ, desktop/mobile Chromium screenshots, zero runtime errors/overflow/broken images/new text collisions/axe contrast failures. Require human aesthetic approval before showing as premium.
 
 Source: .github/workflows/design-first-workflow.yml. This is an isolated proof, **not** a product deployment.
+
+## Verified outcome — 12 November 2026
+
+[Successful reproducible GitHub Actions run](https://github.com/Davemafy/seo/actions/runs/43271510536) using pinned original source. The browser check exercised the redesigned landing at desktop and mobile widths. Chromium independently measured runtime errors, page geometry and axe-core accessibility.
+
+| Gate | Desktop (1440px) | Mobile (390px) |
+|---|---:|---:|
+| HTTP response | 200 | 200 |
+| Feature summaries | 6 | 6 |
+| Interactive demo tabs and keyboard | Passed | Passed |
+| FAQ accordion | Passed | Passed |
+| Mobile nav | N/A | Passed |
+| Broken images / page errors | 0 / 0 | 0 / 0 |
+| Horizontal overflow / text collisions | 0 / 0 | 0 / 0 |
+| Axe contrast failures | 0 | 0 |
+| Full-page screenshot height | 4,056 px | 5,165 px |
+
+The first browser pass (run 43270949853) rejected 47 desktop and 42 mobile contrast failures on muted small text. The patch enlarged and darkened those labels, and the next CI pass was green.
+
+The actual full-page desktop/mobile screenshots and reports are retained in the workflow-design-first-proof artifact on the successful run. The experiment is **not deployed**, and the illustration is not a real app screenshot.
+
+## Design review and remaining limits
+
+The redesign replaces the original generic gradient hero and hardcoded impact mockup with a distinct editorial hierarchy, capability index, and interactive concept. Its non-backend demonstration is labelled as illustrative. The real product's authenticated routes are untouched, but their backend behavior was not tested in this run.
+
+Do not call this a measured 8/10 or 10/10 result: it still needs independent human taste review, and its product preview could be replaced with actual product evidence. The pilot is **manually authored**, not an autonomous Sloppertizer output. Turning the successful design decisions into reusable, source-grounded engine operations is the next development step.
