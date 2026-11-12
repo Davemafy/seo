@@ -1,0 +1,128 @@
+name: Sloppertizer — structural candidate replay, no new design inference
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/structural-replay.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  verify:
+    name: Compile archived full-React design and exercise real browser
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/download-artifact@v4
+        with:
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          run-id: 43267092062
+          name: taste-original-source
+          path: source
+      - uses: actions/download-artifact@v4
+        with:
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          run-id: 43267092062
+          name: taste-original-evidence
+          path: original
+      - uses: actions/download-artifact@v4
+        with:
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          run-id: 43273641134
+          name: structural-studio-generation
+          path: archived
+      - name: Verify 99 unit tests and replay exact recorded full React output
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm test
+          node src/engine/structural-replay.mjs --project source --response archived/raw-structural-response.txt --output candidate
+      - name: Compile, no secrets in this job
+        env: &demo
+          VITE_SUPABASE_URL: https://example.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: test-public-only
+          VITE_SUPABASE_ANON_KEY: test-public-only
+        run: |
+          npm ci --prefix candidate --legacy-peer-deps --ignore-scripts --no-audit --no-fund
+          npm --prefix candidate run build
+      - name: Render original model-authored design and collect browser faults
+        env: *demo
+        run: |
+          npx playwright install --with-deps chromium
+          npm --prefix candidate run dev -- --host 127.0.0.1 --port 3289 --strictPort >/tmp/structural-replay.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          for i in $(seq 1 55); do curl -fsS http://127.0.0.1:3289/ >/dev/null 2>&1 && break; sleep 1; done
+          node src/engine/capture.mjs --url http://127.0.0.1:3289/ --output proof || true
+          node src/engine/creative-verify.mjs --url http://127.0.0.1:3289/ --output proof || true
+          node --input-type=module - <<'CHECK'
+          import fs from 'node:fs';
+          const x=JSON.parse(fs.readFileSync('proof/report.json')),y=JSON.parse(fs.readFileSync('proof/creative-verification.json'));
+          const original=JSON.parse(fs.readFileSync('original/report.json'));
+          console.log('Functional verdict:',y.status);
+          for(const view of ['desktop','mobile']){
+            const a=x[view],b=original[view];
+            console.log(view,JSON.stringify({status:a.status,pageHeight:a.pageHeight,baselineHeight:b.pageHeight,contrast:a.accessibility?.contrastFailures,overflow:a.horizontalOverflow,errors:a.errors,missingImages:a.brokenImages}));
+            if(a.status!==200||a.errors.length||a.horizontalOverflow||a.brokenImages.length||a.textCollisions.length||!a.accessibility?.verified||a.accessibility.contrastFailures>0||a.pageHeight>b.pageHeight*1.3)
+              process.exitCode=1;
+          }
+          if(y.status!=='pass')process.exitCode=1;
+          CHECK
+      - name: Retain screenshots and non-premium failures even on rejection
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: structural-replay-browser-proof
+          path: |
+            proof/
+            candidate/structural-replay-receipt.json
+          retention-days: 14
+          if-no-files-found: warn
+  jury:
+    name: Independent actual screenshot review
+    if: always()
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: structural-replay-browser-proof
+          path: evidence
+      - uses: actions/download-artifact@v4
+        with:
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          run-id: 43267092062
+          name: taste-original-evidence
+          path: original
+      - name: Judge screenshots with independent model, never auto-promote
+        env:
+          VULTR_INFERENCE_API_KEY: ${{ secrets.VULTR_INFERENCE_API_KEY }}
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          test -n "$VULTR_INFERENCE_API_KEY" || exit 1
+          node src/engine/visual-jury.mjs --original original/desktop.png --candidate evidence/proof/desktop.png --mobile evidence/proof/mobile.png --output structural-replay-jury.json --model muse-glimmer-30b
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: structural-replay-independent-jury
+          path: structural-replay-jury.json
+          retention-days: 14
+          if-no-files-found: warn
