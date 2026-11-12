@@ -1,0 +1,123 @@
+name: Sloppertizer — replay archived Taste candidate, no new design inference
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/taste-replay-validation.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  verify:
+    name: Build and inspect archived CSS on actual React app
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Download pinned source
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 43267092062
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          name: taste-original-source
+          path: source
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 43267092062
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          name: taste-generated-candidate
+          path: evidence
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 43267092062
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          name: taste-original-evidence
+          path: baseline
+      - name: Replay saved CSS without AI generation
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm test
+          node src/engine/taste-replay.mjs --project source --response evidence/raw-model-css.txt --output candidate
+      - name: Build actual React candidate
+        env: &demo
+          VITE_SUPABASE_URL: https://example.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sloppertizer-test-only
+          VITE_SUPABASE_ANON_KEY: sloppertizer-test-only
+        run: |
+          npm ci --prefix candidate --legacy-peer-deps --ignore-scripts --no-audit --no-fund
+          npm --prefix candidate run build
+      - name: Capture desktop and mobile browser output
+        env: *demo
+        run: |
+          npx playwright install --with-deps chromium
+          npm --prefix candidate run dev -- --host 127.0.0.1 --port 3185 --strictPort >/tmp/slop-replay.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          for i in $(seq 1 45); do curl -fsS http://127.0.0.1:3185/ >/dev/null 2>&1 && break; sleep 1; done
+          node src/engine/capture.mjs --url http://127.0.0.1:3185/ --output rendered || true
+          node --input-type=module -e 'import {readFileSync,existsSync} from "node:fs"; const r=JSON.parse(readFileSync("rendered/report.json","utf8")); for(const v of ["desktop","mobile"]){const x=r[v];if(!x||x.status!==200||x.errors.length||x.horizontalOverflow||!existsSync("rendered/"+v+".png"))throw Error("Capture failed "+v)}'
+      - name: Compare against inherited source defects
+        id: gate
+        continue-on-error: true
+        run: node src/engine/story-compatibility.mjs --before baseline/report.json --after rendered/report.json --output rendered/gate.json
+      - name: Retain screenshots and verification data
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: taste-replay-verified-evidence
+          path: |
+            rendered/
+            candidate/sloppertizer-taste-replay.json
+            evidence/taste-profile.json
+            evidence/creative-brief.txt
+          retention-days: 14
+          if-no-files-found: warn
+      - name: Fail if new regressions were detected
+        if: steps.gate.outcome == 'failure'
+        run: exit 1
+  visual-jury:
+    name: Independent Muse screenshot review, never deploy
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 43267092062
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          name: taste-original-evidence
+          path: original
+      - uses: actions/download-artifact@v4
+        with:
+          name: taste-replay-verified-evidence
+          path: verified
+      - name: Judge screenshots, no website execution in this job
+        env:
+          VULTR_INFERENCE_API_KEY: ${{ secrets.VULTR_INFERENCE_API_KEY }}
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          test -n "$VULTR_INFERENCE_API_KEY" || exit 1
+          node src/engine/visual-jury.mjs --original original/desktop.png --candidate verified/rendered/desktop.png --mobile verified/rendered/mobile.png --output taste-replay-jury.json --model muse-glimmer-30b
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: taste-replay-independent-visual-review
+          path: taste-replay-jury.json
+          retention-days: 14
+          if-no-files-found: warn
