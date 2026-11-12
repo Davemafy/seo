@@ -1,6 +1,6 @@
 import test from "node:test";
 import {strict as assert} from "node:assert";
-import {addScope,unchangedOutsideScope} from "../src/engine/scope.mjs";
+import {addScope,unchangedOutsideScope,validateCss} from "../src/engine/scope.mjs";
 
 const original=[
  'import React from "react";',
@@ -30,4 +30,16 @@ test("ambiguity and dynamic root class are rejected",()=>{
 test("story wrapper must remain explicitly authorized",()=>{
  const claimed=original.replace('className="min-h-screen bg-background"','className="slp-story" data-slp-story="source-preserved"');
  assert.throws(()=>addScope(claimed,"src/routes/index.tsx"),/verified story wrapper/);
+});
+
+test("dark-theme ancestor may style ONLY the existing scoped subtree",()=>{
+ const css=[
+  ".slp-engine { background: #faf9f5; color:#151515; }",
+  ".dark .slp-engine, .slp-engine.dark { background: #101319; color: #eee; }",
+  ".dark .slp-engine h1 { font-size:48px; }",
+  ".slp-engine button { background: #891d20; }"
+ ].join("\n");
+ assert.equal(validateCss(css),css);
+ assert.throws(()=>validateCss(css+"\n.dark button { color: red; }"),/escaped/);
+ assert.throws(()=>validateCss(css+"\nbody { color: red; }"),/escaped/);
 });
